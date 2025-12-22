@@ -7,7 +7,7 @@
 **License**: FSL (Functional Source License)
 
 - Source-available with non-compete restriction
-- Self-hosting for personal/internal use unrestricted—no artificial feature limits
+- Self-hosting for personal/internal use unrestricted, with no artificial feature limits
 - Converts to Apache 2.0 two years after each release
 - Honest about being source-available, not “open source”
 
@@ -58,7 +58,7 @@ This gives you:
 
 A self-hosted conversational AI assistant with deep access to your digital infrastructure, capable of handling ad-hoc requests immediately and graduating repeated patterns into autonomous workflows.
 
-**One-sentence pitch**: “A personal AI assistant that can access your email, calendar, and tools—and can automate the things you keep asking for.”
+**One-sentence pitch**: "A personal AI assistant that can access your email, calendar, and tools, and can automate the things you keep asking for."
 
 -----
 
@@ -207,7 +207,7 @@ These are recurring patterns that benefit from explicit automation. The user (po
 
 #### Cross-Calendar Date Night Finder
 
-**User intent**: “Alert me when both my calendar and my spouse’s calendar are free on a weekend evening—potential date night.”
+**User intent**: "Alert me when both my calendar and my spouse's calendar are free on a weekend evening. Potential date night opportunity."
 
 **Resulting workflow**:
 
@@ -256,7 +256,7 @@ This is itself a workflow, making the “pattern recognition” explicit and ins
 
 1. **Trigger**: Schedule (weekly, Sunday evening)
 1. **Fetch**: Conversation logs from past week
-1. **Extract**: Request patterns—what did the user ask for repeatedly?
+1. **Extract**: Request patterns. What did the user ask for repeatedly?
 1. **Classify**: Which patterns are candidates for automation?
 - Criteria: frequency, predictability, benefit from autonomous operation
 1. **Filter**: Exclude patterns that already have workflows
@@ -270,7 +270,7 @@ This is itself a workflow, making the “pattern recognition” explicit and ins
 - Can review and reject suggestions
 - Can modify suggested workflows before deploying
 
-**Transparency**: This isn’t magic “learning”—it’s an explicit workflow operating on conversation data. User can inspect it, adjust the thresholds, or turn it off.
+**Transparency**: This isn't magic "learning". It's an explicit workflow operating on conversation data. User can inspect it, adjust the thresholds, or turn it off.
 
 -----
 
@@ -278,7 +278,7 @@ This is itself a workflow, making the “pattern recognition” explicit and ins
 
 **User initiates**: “Help me plan a trip to Japan in April.”
 
-**Assistant uses coordination** (not a predefined workflow—this is conversational mode with sub-workflow invocation):
+**Assistant uses coordination** (not a predefined workflow; this is conversational mode with sub-workflow invocation):
 
 1. Invoke flight search sub-workflow → collect options
 1. Invoke hotel search sub-workflow → collect options
@@ -358,7 +358,7 @@ AI-powered operations available both in conversation and as workflow steps.
 |**Decide**     |Context + options + criteria|Selected option      |"Which response is best?"          |
 |**Coordinate** |Goal + available tools      |Final result         |"Plan this trip" (multi-step research)|
 
-**Note on primitives**: At the implementation level, most primitives above (Classify, Extract, Generate, Summarize, Score, Deduplicate, Decide) are variations of a single LLM call with different prompts and output schemas. **Coordinate** is architecturally distinct—it's an LLM-driven execution loop where the model decides what actions to take, executes them, evaluates results, and repeats until the goal is achieved.
+**Note on primitives**: At the implementation level, most primitives above (Classify, Extract, Generate, Summarize, Score, Deduplicate, Decide) are variations of a single LLM call with different prompts and output schemas. **Coordinate** is architecturally distinct: it's an LLM-driven execution loop where the model decides what actions to take, executes them, evaluates results, and repeats until the goal is achieved.
 
 ### 5.5 Integration Framework
 
@@ -370,7 +370,7 @@ Access to external services, available to both conversation and workflows.
 |**Protocol Support**  |IMAP, JMAP, CalDAV, REST, GraphQL, webhooks                              |
 |**Authentication**    |OAuth flows, token refresh, secure credential storage                    |
 |**Multi-Account**     |Multiple accounts of same service type                                   |
-|**Read and Write**    |Bidirectional—fetch data and take actions                                |
+|**Read and Write**    |Bidirectional: fetch data and take actions                               |
 |**Rate Limiting**     |Respect external API constraints                                         |
 |**Custom Connectors** |Define new integrations without modifying core platform                  |
 
@@ -419,7 +419,7 @@ How the system gets better over time (all explicit, not magic).
 |--------------------------|-------------------------------------------------------------|
 |**Feedback Collection**   |Store user feedback on AI primitive outputs                  |
 |**Conversation Analysis** |Meta-workflow to identify automation candidates              |
-|**Refinement Suggestions**|“You’ve rejected 5 classifications like this—want to adjust?”|
+|**Refinement Suggestions**|"You've rejected 5 classifications like this. Want to adjust?"|
 |**Model Improvement Path**|Mechanism to incorporate feedback into model behavior        |
 |**A/B Comparison**        |Test workflow variations against each other                  |
 
@@ -522,14 +522,48 @@ How the system gets better over time (all explicit, not magic).
 
 ### 8.1 Conversational Context
 
-**Question**: How much context does the conversational assistant maintain?
+**Status**: Decided (v1)
 
-Considerations:
+#### Decision
 
-- Within-session: Full conversation history (standard)
-- Cross-session: What persists? User preferences? Prior decisions? Facts learned?
-- Storage implications of retaining conversation history for meta-workflow analysis
-- Privacy of conversation logs
+**Categories of context**:
+
+| Category | Description | Source label |
+|----------|-------------|--------------|
+| **Conversation history** | Raw messages exchanged | N/A |
+| **Facts** | Structured knowledge learned from conversation | `explicit` (user stated) or `inferred` |
+| **Corrections/feedback** | User overrides and refinements | N/A |
+| **Workflow execution history** | What ran, when, inputs/outputs | Queryable from conversation, not injected |
+
+**Retention policy**:
+
+| Category | Retention | Rationale |
+|----------|-----------|-----------|
+| Conversation history | 90 days rolling | Enough for meta-workflow pattern detection; patterns graduate to workflows/facts |
+| Facts | Until contradicted or manually deleted | Stable truths; outlive source conversation |
+| Corrections/feedback | Permanent | Training signal; small volume; high value |
+| Workflow execution history | User-configurable (default 90 days) | Audit/debugging |
+
+**Cross-session surfacing**:
+
+- **Hybrid approach**: Core context always injected into LLM calls; everything else retrieved on-demand via semantic search
+- **Core definition (v1)**: Explicitly marked facts only. User says "remember that..." → core. No auto-promotion.
+
+#### Deferred: Future promotion strategies
+
+**Recency-based promotion** (strawman):
+- Facts referenced in last N sessions auto-promote to core
+- Open question: What constitutes "referenced"? Retrieved ≠ referenced.
+- Options to explore: explicit citation, user confirmation, heuristics
+
+**Typed category promotion** (alternative):
+- Certain fact types always core: identity, constraints, active projects
+- Open question: Context-dependent relevance. Allergies are core for lunch plans but irrelevant for scheduling online meetings.
+- Implies retrieval might need task/intent awareness, not just semantic similarity
+
+#### Key insight
+
+> Relevance is context-dependent. A fact being "important" isn't binary; it depends on what the user is trying to do. Future work on smart retrieval should consider intent, not just semantic similarity.
 
 ### 8.2 Workflow Representation
 
@@ -552,14 +586,49 @@ Considerations:
 
 ### 8.3 Graduation Criteria
 
-**Question**: What makes a conversational pattern a good candidate for workflow graduation?
+**Status**: Working framework (needs refinement before implementation)
 
-Considerations:
+#### Core insight
 
-- Frequency (asked 3+ times in a week?)
-- Predictability (same basic request each time?)
-- Autonomy benefit (would running without user initiation add value?)
-- Complexity (simple enough to express as workflow?)
+Graduation criteria are interdependent. "Frequency", "predictability", and "autonomy benefit" can't be evaluated independently. A pattern is graduatable based on a holistic assessment.
+
+#### Automation flavors
+
+Graduation produces different workflow types depending on the pattern:
+
+| Flavor | Trigger | Inputs | Invoker | Example |
+|--------|---------|--------|---------|---------|
+| **Autonomous** | Schedule/event | Derived from trigger or stable | System | Daily briefing at 7am |
+| **Invoked workflow** | Explicit call | Parameterized | User, agent, or other workflow | "Research trip to {destination}" |
+| **Suggested action** | System detects opportunity | Derived from context | System prompts, user confirms | "Free evening detected. Date night?" |
+
+#### Detection signals (draft)
+
+| Pattern signal | Suggests |
+|----------------|----------|
+| Same time of day / day of week | Autonomous candidate (schedule trigger) |
+| Same process, varying inputs | Invoked workflow candidate (parameterized) |
+| Same trigger event, same response | Autonomous candidate (event trigger) |
+| Consistent process but requires clarification | Not yet automatable |
+
+#### Graduation decision flow (draft)
+
+1. **Is the process stable?** Same steps, same integrations across instances
+2. **Are inputs predictable?**
+   - Yes → autonomous candidate
+   - No, but parameterizable → invoked workflow
+   - No, requires conversation → not ready for graduation
+3. **Is there a trigger pattern?**
+   - Temporal regularity → schedule trigger
+   - Event correlation → event trigger
+   - Ad-hoc → manual/callable trigger
+
+#### Open for implementation planning
+
+- Specific thresholds (N occurrences in M days)
+- Semantic similarity measurement for "same request"
+- Disqualification heuristics
+- User configurability of thresholds
 
 ### 8.4 AI Primitive Boundaries
 
@@ -699,12 +768,12 @@ Considerations:
 
 ## 10. Out of Scope (v1)
 
-- **Granular permissions model** — OIDC authentication from the start, but permissions beyond "logged in or not" come later
-- **Mobile apps** — Web/API access only
-- **Voice interface** — Text-based interaction
-- **Real-time collaboration** — Async operation model
-- **Marketplace** — No workflow/connector sharing infrastructure
-- **Hosted offering** — Self-hosted only
+- **Granular permissions model**: OIDC authentication from the start, but permissions beyond "logged in or not" come later
+- **Mobile apps**: Web/API access only
+- **Voice interface**: Text-based interaction
+- **Real-time collaboration**: Async operation model
+- **Marketplace**: No workflow/connector sharing infrastructure
+- **Hosted offering**: Self-hosted only
 
 -----
 
@@ -727,7 +796,7 @@ Considerations:
 
 |Term                   |Definition                                                                                       |
 |-----------------------|-------------------------------------------------------------------------------------------------|
-|**Conversational Mode**|The primary interaction mode—user asks questions, assistant responds using available capabilities|
+|**Conversational Mode**|The primary interaction mode. User asks questions, assistant responds using available capabilities.|
 |**Workflow**           |An explicit, inspectable sequence of steps that runs autonomously on triggers                    |
 |**AI Primitive**       |A bounded AI operation (classify, extract, generate, etc.) usable in conversation or workflows   |
 |**Trigger**            |An event or condition that causes a workflow to execute                                          |

@@ -233,7 +233,13 @@ flowchart TB
 | **Tool Registry** | Registry of tools available during conversation |
 | **Authoring Controller** | Handles workflow creation from conversation |
 
-> **OPEN**: Context persistence strategy (PRD 8.1) - how much context persists across sessions?
+#### Context Persistence Strategy (PRD 8.1 - Decided)
+
+**Categories**: Conversation history, Facts (with explicit/inferred source), Corrections/feedback, Workflow execution history (queryable).
+
+**Retention**: Conversation 90 days; Facts until contradicted; Corrections permanent; Workflow runs configurable (default 90 days).
+
+**Surfacing**: Hybrid. Explicitly marked facts always in context; everything else via semantic retrieval on-demand.
 
 ### 4.3 Integration Framework Components
 
@@ -911,15 +917,15 @@ definition workflow {
 | Expression language | **DEFERRED** | Requirements established; no viable Rust impl yet |
 | Workflow execution model | **OPEN** | Graph traversal, parallel paths, state management |
 | Workflow versioning | **OPEN** | Change tracking, rollback, draft vs published |
-| Context persistence strategy | **OPEN** | Cross-session context handling |
+| Context persistence strategy | **DECIDED** | See PRD 8.1 and Section 4.2 |
 
 ### 12.2 PRD Open Questions Mapping
 
 | PRD Section | Question | Status |
 |-------------|----------|--------|
-| 8.1 | Conversational Context | **OPEN** |
+| 8.1 | Conversational Context | **DECIDED** - Hybrid surfacing; explicit-only core; 90-day conversation retention |
 | 8.2 | Workflow Representation | **DECIDED** - petgraph + JSONB storage (ADR-005) |
-| 8.3 | Graduation Criteria | **OPEN** |
+| 8.3 | Graduation Criteria | **PARTIAL** - Working framework; needs refinement before implementation |
 | 8.4 | AI Primitive Boundaries | **N/A** - per-node configuration |
 | 8.5 | Workflow Execution Patterns | **OPEN** - depends on execution model design |
 | 8.6 | State and Memory | **OPEN** |
