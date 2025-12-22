@@ -517,18 +517,20 @@ volumes:
 - Automatic RPC stub generation for client-side calls
 - Type-safe communication between server and WASM client
 
+**Note**: Leptos server functions are tightly coupled to the frontend's needs. They are not a general-purpose API and should not be treated as one.
+
 ### 9.2 General API
 
-> **OPEN**: General API design (REST, GraphQL, etc.) is not yet decided.
+> **DEFERRED**: A general API (REST, GraphQL, etc.) for external tooling and scripting is not needed yet.
 
-Considerations:
-- API-first design per [PRD Section 6.4](../PRD.md#64-extensibility)
-- All functionality should be accessible via API
+When needed, considerations from [PRD Section 6.4](../PRD.md#64-extensibility):
+- API-first design
+- All functionality accessible via API
 - Support for external tooling and scripting
 
 ### 9.3 Webhook Endpoints
 
-> **TBD**: Design for webhook ingestion for external triggers.
+> **TBD**: Design for webhook ingestion for external triggers (when workflow triggers are implemented).
 
 ### 9.4 Admin/Observability Endpoints
 
@@ -634,7 +636,7 @@ Potential crates (pending design):
 | Deployment topology | **OPEN** | Single-node vs distributed |
 | Multi-user data model | **OPEN** | User indicated preference for multi-user aware |
 | Event bus / message queue | **OPEN** | In-process vs external |
-| General API design | **OPEN** | REST, GraphQL, etc. |
+| General API design | **DEFERRED** | Not needed yet; Leptos server functions serve frontend only |
 | Workflow representation format | **OPEN** | Requires separate design session |
 | Context persistence strategy | **OPEN** | Cross-session context handling |
 
