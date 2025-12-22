@@ -1,0 +1,739 @@
+# Autonomous Personal Assistant Platform
+
+## Product Requirements Document
+
+**Codename**: silver-telegram
+
+**License**: FSL (Functional Source License)
+
+- Source-available with non-compete restriction
+- Self-hosting for personal/internal use unrestricted—no artificial feature limits
+- Converts to Apache 2.0 two years after each release
+- Honest about being source-available, not “open source”
+
+-----
+
+## 1. Problem Statement
+
+### 1.1 The Gap in Existing Solutions
+
+Current self-hosted automation and AI agent platforms fall into two categories:
+
+**Workflow Automation Platforms** (n8n, Activepieces, Windmill, Huginn)
+
+- Provide scheduling, triggers, and integrations
+- AI capabilities bolted on as “just another node”
+- Every task requires defining a workflow upfront
+- No natural language interaction for ad-hoc requests
+
+**AI Chat Interfaces** (Open WebUI, Dify, ChatGPT)
+
+- Natural conversation for ad-hoc requests
+- No persistent autonomous operation
+- Integrations limited or absent
+- Can’t “set it and forget it”
+
+**What’s Missing**: A platform where you can have a conversation with an AI assistant that has access to your digital infrastructure (email, calendar, tasks, web), *and* can graduate repeated patterns into autonomous workflows that run without your involvement.
+
+### 1.2 Core Model
+
+**Conversational mode is primary.** You talk to the assistant. It has access to your integrations (email, calendar, etc.), can use tools (search, APIs), and applies AI capabilities (classification, summarization, generation) on demand. No workflow definition required.
+
+**Workflows are for graduating patterns.** When you notice you keep asking for the same kind of thing, or want something to run autonomously on a schedule or trigger, you create a workflow. Workflows are explicit, inspectable, and predictable.
+
+**The assistant can help author workflows.** Describe what you want automated, refine through conversation, get an inspectable artifact that runs on its own.
+
+**A meta-workflow can suggest automations.** Since agents don’t have inherent memory or “deja vu,” pattern recognition is itself an explicit scheduled workflow that reviews conversation history and proposes candidates for automation.
+
+This gives you:
+
+- **Low friction for ad-hoc requests**: Just ask
+- **Predictability for recurring patterns**: Explicit workflows you can inspect
+- **Graduation path**: Easy to turn conversations into automations
+- **Transparency**: Even the “learning” (pattern recognition) is an inspectable workflow
+
+-----
+
+## 2. Product Vision
+
+A self-hosted conversational AI assistant with deep access to your digital infrastructure, capable of handling ad-hoc requests immediately and graduating repeated patterns into autonomous workflows.
+
+**One-sentence pitch**: “A personal AI assistant that can access your email, calendar, and tools—and can automate the things you keep asking for.”
+
+-----
+
+## 3. User Personas
+
+### 3.1 Primary: Technical Professional
+
+- Comfortable with self-hosting, Docker, configuration files
+- Values being able to inspect and understand what their automations do
+- Wants AI to help with the hard parts (classification, generation) but not make unpredictable decisions
+- Has specific workflows in mind but doesn’t want to build from scratch
+
+### 3.2 Secondary: Power User
+
+- Can follow technical instructions but not a developer
+- Wants to describe what they need and have the system help build it
+- Needs to be able to review and approve what gets created
+- May not be able to write code but can understand logic when explained
+
+-----
+
+## 4. Example Use Cases
+
+These illustrate both conversational (ad-hoc) and workflow (recurring/autonomous) modes.
+
+### 4.1 Conversational Mode Examples
+
+These are ad-hoc requests handled through natural conversation. No workflow is created; the assistant uses its available capabilities directly.
+
+#### Travel Research
+
+**User**: “I want to visit Iceland in March. When are flights cheapest?”
+
+**Assistant behavior**:
+
+- Uses search/API tools to find flight pricing patterns
+- Presents findings conversationally
+- Can follow up: “What about hotels?” / “Any events happening then?”
+
+**Capabilities used**: Tool invocation (search, flight APIs), generation (summarization)
+
+-----
+
+#### Calendar Query
+
+**User**: “What’s on my calendar tomorrow? Anything I should prep for?”
+
+**Assistant behavior**:
+
+- Fetches calendar via integration
+- Identifies meetings, notes any with attached agendas
+- Suggests prep based on meeting types
+
+**Capabilities used**: Integration (calendar), generation (analysis and suggestions)
+
+-----
+
+#### Lunch Recommendations
+
+**User**: “I’m meeting Sarah for lunch downtown. What are some good options?”
+
+**Assistant behavior**:
+
+- Could use search for restaurant options
+- If it has context about Sarah’s preferences (from prior conversation or explicit info), factors that in
+- Presents options with reasoning
+
+**Capabilities used**: Tool invocation (search), optional context retrieval
+
+-----
+
+#### Quick Lookup
+
+**User**: “Did I get any emails from Acme Corp this week?”
+
+**Assistant behavior**:
+
+- Queries email via integration
+- Summarizes findings
+
+**Capabilities used**: Integration (email), generation (summarization)
+
+-----
+
+### 4.2 Workflow Mode Examples
+
+These are recurring patterns that benefit from explicit automation. The user (possibly with assistant help) defines a workflow that runs autonomously.
+
+#### Daily Briefing
+
+**User intent**: “Every morning, prepare a briefing with my calendar, important emails, and due tasks.”
+
+**Resulting workflow**:
+
+1. **Trigger**: Schedule (7:00 AM, user’s timezone)
+1. **Fetch**: Calendar events for today (personal + work calendars)
+1. **Fetch**: Emails flagged or from priority senders
+1. **Fetch**: Tasks due today or overdue
+1. **Generate**: Summary combining all inputs with prioritization
+1. **Deliver**: Send via email / notification
+
+**Why a workflow**: Runs daily without user initiation; same pattern every time.
+
+-----
+
+#### Misdirected Email Handler
+
+**User intent**: “When I get an email meant for someone else (people confuse me with the CEO), draft a polite redirect.”
+
+**Resulting workflow**:
+
+1. **Trigger**: New email arrives
+1. **Classify**: Is this misdirected? (Categories: intended-for-me, misdirected, uncertain)
+1. **Branch**:
+- If misdirected (high confidence): Generate draft response → Save to Drafts → Notify user
+- If uncertain: Notify user for review
+- If intended-for-me: No action
+1. **Log**: Record classification for later review/feedback
+
+**Why a workflow**: Event-driven; should happen automatically without user checking each email.
+
+-----
+
+#### Interest-Based News Monitoring
+
+**User intent**: “Watch for news about topics I care about and send me a digest, but alert me immediately if something major happens.”
+
+**Resulting workflow**:
+
+1. **Trigger**: Schedule (every 30 minutes)
+1. **Fetch**: New items from RSS feeds, configured APIs
+1. **For each item**:
+- **Classify**: Relevance to interest profile (high/medium/low/none)
+- **Classify**: Urgency (breaking/routine)
+- **Deduplicate**: Skip if substantially similar to recent item
+1. **Branch**:
+- High relevance + breaking: Immediate notification
+- High/medium relevance + routine: Add to digest queue
+1. **Trigger**: Schedule (6:00 PM daily)
+1. **Generate**: Compile digest from queue
+1. **Deliver**: Send digest
+
+**Why a workflow**: Continuous monitoring; different actions based on urgency; batched delivery.
+
+-----
+
+#### Cross-Calendar Date Night Finder
+
+**User intent**: “Alert me when both my calendar and my spouse’s calendar are free on a weekend evening—potential date night.”
+
+**Resulting workflow**:
+
+1. **Trigger**: Schedule (daily) or Calendar change event
+1. **Fetch**: My calendar (next 2 weeks, weekend evenings)
+1. **Fetch**: Spouse’s calendar (same window)
+1. **Analyze**: Find overlapping free slots
+1. **Deduplicate**: Skip if already notified about this slot
+1. **Branch**: If new slots found → Notify
+1. **Log**: Record notified slots
+
+**Why a workflow**: Proactive detection; runs without user asking.
+
+-----
+
+### 4.3 Graduation Example: Conversation to Workflow
+
+**Initial conversation**:
+
+- User: “What’s on my calendar tomorrow?”
+- User (next day): “Show me tomorrow’s calendar”
+- User (next day): “Calendar for tomorrow?”
+
+**Meta-workflow detects pattern** (see 4.4):
+
+- “You’ve asked for tomorrow’s calendar 5 times in the past 2 weeks, usually in the evening. Would you like a daily briefing sent at 8 PM?”
+
+**User agrees**, workflow is created:
+
+1. **Trigger**: Schedule (8:00 PM daily)
+1. **Fetch**: Calendar for next day
+1. **Generate**: Brief summary
+1. **Deliver**: Notification
+
+**Graduation benefit**: User no longer has to remember to ask.
+
+-----
+
+### 4.4 Meta-Workflow: Workflow Suggestion
+
+This is itself a workflow, making the “pattern recognition” explicit and inspectable.
+
+**Purpose**: Review conversation history, identify repeated request patterns, propose workflow candidates.
+
+**Workflow**:
+
+1. **Trigger**: Schedule (weekly, Sunday evening)
+1. **Fetch**: Conversation logs from past week
+1. **Extract**: Request patterns—what did the user ask for repeatedly?
+1. **Classify**: Which patterns are candidates for automation?
+- Criteria: frequency, predictability, benefit from autonomous operation
+1. **Filter**: Exclude patterns that already have workflows
+1. **Generate**: Workflow proposals for promising candidates
+1. **Deliver**: Present suggestions to user
+
+**User control**:
+
+- Can adjust what counts as “worth automating”
+- Can disable this workflow entirely
+- Can review and reject suggestions
+- Can modify suggested workflows before deploying
+
+**Transparency**: This isn’t magic “learning”—it’s an explicit workflow operating on conversation data. User can inspect it, adjust the thresholds, or turn it off.
+
+-----
+
+### 4.5 Coordination Example: Multi-Step Research
+
+**User initiates**: “Help me plan a trip to Japan in April.”
+
+**Assistant uses coordination** (not a predefined workflow—this is conversational mode with sub-workflow invocation):
+
+1. Invoke flight search sub-workflow → collect options
+1. Invoke hotel search sub-workflow → collect options
+1. Invoke event/festival lookup → collect relevant events
+1. Synthesize findings, present to user
+1. User refines: “I prefer Kyoto over Tokyo”
+1. Re-run relevant sub-workflows with constraints
+1. Present updated options
+
+**Why not a predefined workflow**:
+
+- One-off task, not recurring
+- Requires interactive refinement
+- Exploratory, not predictable
+
+**Why sub-workflows are useful**:
+
+- Reusable components (flight search, hotel search)
+- Parallel execution
+- Can be invoked from conversation or from other workflows
+
+-----
+
+## 5. Platform Capabilities
+
+### 5.1 Conversational Interface
+
+The primary interaction mode.
+
+|Capability                 |Description                                                        |
+|---------------------------|-------------------------------------------------------------------|
+|**Natural Language Input** |User asks questions or makes requests in plain language            |
+|**Context Maintenance**    |Conversation history maintained within session                     |
+|**Integration Access**     |Assistant can query user’s connected services on demand            |
+|**Tool Invocation**        |Assistant can use search, APIs, and other tools                    |
+|**AI Primitives on Demand**|Classification, summarization, generation available as capabilities|
+|**Workflow Invocation**    |Can trigger existing workflows from conversation                   |
+|**Authoring Mode**         |Can switch to workflow authoring when user wants to automate       |
+
+### 5.2 Workflows
+
+For recurring patterns that should run autonomously.
+
+|Capability             |Description                                                          |
+|-----------------------|---------------------------------------------------------------------|
+|**Workflow Definition**|Declare a sequence of steps with branching, loops, and error handling|
+|**Workflow Versioning**|Track changes, roll back to previous versions                        |
+|**Workflow State**     |Persist execution state for long-running or resumable workflows      |
+|**Workflow Inspection**|View the definition in readable form; understand what it will do     |
+|**Execution History**  |See past runs, inputs, outputs, and decisions at each step           |
+
+### 5.3 Triggers
+
+What causes workflows to execute.
+
+|Capability          |Description                                                   |
+|--------------------|--------------------------------------------------------------|
+|**Schedule**        |Cron-style time-based triggers with timezone support          |
+|**Event**           |React to external events (new email, calendar change, webhook)|
+|**Condition**       |Trigger when a monitored condition becomes true               |
+|**Manual**          |User-initiated execution (from UI or conversation)            |
+|**Sub-workflow**    |Triggered by another workflow or conversational request       |
+|**Missed Execution**|Configurable: skip, run immediately, or run at next window    |
+
+### 5.4 AI Primitives
+
+AI-powered operations available both in conversation and as workflow steps.
+
+|Primitive      |Input                       |Output               |Example Use                        |
+|---------------|----------------------------|---------------------|-----------------------------------|
+|**Classify**   |Content + categories        |Category + confidence|“Is this email misdirected?”       |
+|**Extract**    |Content + schema            |Structured data      |“Pull out dates, locations, budget”|
+|**Generate**   |Context + instructions      |Text                 |“Write a polite redirect email”    |
+|**Summarize**  |Content + constraints       |Condensed text       |“Summarize these 10 emails”        |
+|**Score**      |Content + criteria          |Numeric score        |“How relevant to my interests?”    |
+|**Deduplicate**|Item + recent items         |Is duplicate (bool)  |“Have I seen this already?”        |
+|**Decide**     |Context + options + criteria|Selected option      |“Which response is best?”          |
+|**Coordinate** |Sub-workflow/tool specs     |Aggregated results   |“Run these searches in parallel”   |
+
+### 5.5 Integration Framework
+
+Access to external services, available to both conversation and workflows.
+
+|Capability            |Description                                                              |
+|----------------------|-------------------------------------------------------------------------|
+|**Service Connectors**|Pre-built integrations for common services (email, calendar, tasks, etc.)|
+|**Protocol Support**  |IMAP, JMAP, CalDAV, REST, GraphQL, webhooks                              |
+|**Authentication**    |OAuth flows, token refresh, secure credential storage                    |
+|**Multi-Account**     |Multiple accounts of same service type                                   |
+|**Read and Write**    |Bidirectional—fetch data and take actions                                |
+|**Rate Limiting**     |Respect external API constraints                                         |
+|**Custom Connectors** |Define new integrations without modifying core platform                  |
+
+### 5.6 Workflow Authoring
+
+How workflows get created.
+
+|Capability                  |Description                                                      |
+|----------------------------|-----------------------------------------------------------------|
+|**Conversational Authoring**|Describe intent in natural language, refine through dialogue     |
+|**Example-Based Refinement**|Provide examples of inputs and desired outputs                   |
+|**Template Library**        |Start from common patterns, customize                            |
+|**Test Execution**          |Run workflow with sample data before deploying                   |
+|**Diff and Review**         |See what changed between versions                                |
+|**Graduation Prompts**      |Meta-workflow suggests automations based on conversation patterns|
+
+### 5.7 Human-in-the-Loop
+
+Controls for when automation should pause for human input.
+
+|Capability            |Description                                   |
+|----------------------|----------------------------------------------|
+|**Approval Steps**    |Pause execution pending human approval        |
+|**Review Queues**     |Present outputs for review before final action|
+|**Feedback Capture**  |Accept/reject/modify signals on outputs       |
+|**Confidence Routing**|Different paths based on AI confidence level  |
+
+### 5.8 Observability
+
+Understanding what happened and why.
+
+|Capability              |Description                                           |
+|------------------------|------------------------------------------------------|
+|**Execution Logs**      |What happened, when, with what inputs/outputs         |
+|**Decision Trace**      |For AI primitives: why this classification/generation?|
+|**Error Reporting**     |Clear errors with actionable information              |
+|**Metrics**             |Success rate, latency, resource usage                 |
+|**Alerting**            |Notify on failures or anomalies                       |
+|**Conversation History**|Searchable log of past conversations                  |
+
+### 5.9 Learning and Improvement
+
+How the system gets better over time (all explicit, not magic).
+
+|Capability                |Description                                                  |
+|--------------------------|-------------------------------------------------------------|
+|**Feedback Collection**   |Store user feedback on AI primitive outputs                  |
+|**Conversation Analysis** |Meta-workflow to identify automation candidates              |
+|**Refinement Suggestions**|“You’ve rejected 5 classifications like this—want to adjust?”|
+|**Model Improvement Path**|Mechanism to incorporate feedback into model behavior        |
+|**A/B Comparison**        |Test workflow variations against each other                  |
+
+-----
+
+## 6. Non-Functional Requirements
+
+### 6.1 Deployment
+
+|Requirement           |Description                                             |
+|----------------------|--------------------------------------------------------|
+|**Self-Hosted**       |Runs entirely on user-controlled infrastructure         |
+|**Single-Node Viable**|Must work on single server (home lab use case)          |
+|**Containerized**     |Standard container deployment                           |
+|**Offline Capable**   |Core functionality works without internet (local models)|
+|**Resource Efficient**|Reasonable footprint when idle                          |
+
+### 6.2 Privacy and Security
+
+|Requirement            |Description                                     |
+|-----------------------|------------------------------------------------|
+|**Data Locality**      |All data stays on user infrastructure by default|
+|**Credential Security**|Encrypted storage, no plaintext credentials     |
+|**Minimal Permissions**|Request only needed access scopes               |
+|**No Telemetry**       |No data sent to platform developers             |
+|**Audit Logging**      |Track all access to sensitive data              |
+
+### 6.3 Reliability
+
+|Requirement              |Description                                    |
+|-------------------------|-----------------------------------------------|
+|**Crash Recovery**       |Automatic restart with state preservation      |
+|**Idempotent Operations**|Safe to retry failed operations                |
+|**Graceful Degradation** |Partial functionality if components unavailable|
+|**Queue Durability**     |Pending tasks survive restarts                 |
+|**Health Checking**      |Self-monitoring with alerting                  |
+
+### 6.4 Extensibility
+
+|Requirement            |Description                                 |
+|-----------------------|--------------------------------------------|
+|**Custom Connectors**  |Add new service integrations                |
+|**Custom Primitives**  |Define new AI primitives beyond built-in set|
+|**Plugin Architecture**|Clean extension points                      |
+|**API-First**          |All functionality accessible via API        |
+
+### 6.5 Usability
+
+|Requirement               |Description                                  |
+|--------------------------|---------------------------------------------|
+|**Configuration as Code** |Workflows are version-controllable artifacts |
+|**Sensible Defaults**     |Works out of box for common cases            |
+|**Progressive Disclosure**|Simple things simple, complex things possible|
+|**Documentation**         |Comprehensive, example-rich documentation    |
+|**Actionable Errors**     |Error messages that tell you what to do      |
+
+-----
+
+## 7. Key Differentiators from Existing Solutions
+
+### 7.1 vs. Workflow Platforms (n8n, Activepieces, Windmill)
+
+|They Provide                           |This Platform Adds                                                   |
+|---------------------------------------|---------------------------------------------------------------------|
+|Visual/code workflow builder           |Conversational interface for ad-hoc requests                         |
+|AI as just another node                |AI primitives as first-class vocabulary                              |
+|Every task requires workflow definition|Ad-hoc requests handled immediately, workflows for recurring patterns|
+|No authoring assistance                |Conversational workflow creation and graduation prompts              |
+
+### 7.2 vs. Chat Interfaces (Open WebUI, ChatGPT)
+
+|They Provide           |This Platform Adds                               |
+|-----------------------|-------------------------------------------------|
+|Conversational AI      |Deep integration with personal infrastructure    |
+|Limited/no integrations|Email, calendar, tasks, and extensible connectors|
+|Session-based only     |Autonomous workflows that run without user       |
+|No pattern graduation  |Repeated requests can become automations         |
+
+### 7.3 vs. Agent Frameworks (LangGraph, CrewAI)
+
+|They Provide                   |This Platform Adds                 |
+|-------------------------------|-----------------------------------|
+|Sophisticated agent reasoning  |Explicit, inspectable workflows    |
+|Requires external orchestration|Built-in scheduling and triggers   |
+|Open-ended autonomy            |Bounded AI within defined structure|
+|Code-only definition           |Conversational authoring           |
+
+### 7.4 vs. AI Platforms (Dify)
+
+|They Provide             |This Platform Adds                |
+|-------------------------|----------------------------------|
+|Chat-centric interaction |Both chat and autonomous operation|
+|Conversational AI        |Workflow graduation path          |
+|Limited integration story|Deep integration framework        |
+|No workflow coordination |Sub-workflow composition          |
+
+-----
+
+## 8. Open Questions
+
+### 8.1 Conversational Context
+
+**Question**: How much context does the conversational assistant maintain?
+
+Considerations:
+
+- Within-session: Full conversation history (standard)
+- Cross-session: What persists? User preferences? Prior decisions? Facts learned?
+- Storage implications of retaining conversation history for meta-workflow analysis
+- Privacy of conversation logs
+
+### 8.2 Workflow Representation
+
+**Question**: What artifact results from workflow authoring?
+
+Options:
+
+- **Code**: Full programming language, maximum flexibility, requires dev skills to edit
+- **Declarative config**: YAML/JSON/TOML, readable but limited expressiveness
+- **Visual graph**: GUI-editable, accessible but harder to version control
+- **DSL**: Purpose-built language, balanced but another thing to learn
+- **Hybrid**: High-level structure in config, complex logic in code
+
+Considerations:
+
+- Must be inspectable (user can understand what it does)
+- Should be version-controllable (diffable, mergeable)
+- Authoring agent needs to produce it
+- User may need to edit it manually
+
+### 8.3 Graduation Criteria
+
+**Question**: What makes a conversational pattern a good candidate for workflow graduation?
+
+Considerations:
+
+- Frequency (asked 3+ times in a week?)
+- Predictability (same basic request each time?)
+- Autonomy benefit (would running without user initiation add value?)
+- Complexity (simple enough to express as workflow?)
+
+### 8.4 AI Primitive Boundaries
+
+**Question**: How much latitude does each AI primitive have?
+
+For example, “Classify” could mean:
+
+- Pick from exactly these categories (constrained)
+- Pick from these categories or suggest a new one (semi-constrained)
+- Determine appropriate categories (unconstrained)
+
+Considerations:
+
+- More constraint = more predictable, less flexible
+- Less constraint = more capable, harder to debug
+- Different use cases need different levels
+- Should this be configurable per-use?
+
+### 8.5 Coordination Patterns
+
+**Question**: What patterns of coordination are needed?
+
+Identified so far:
+
+- **Sequential**: A then B then C
+- **Parallel**: A, B, C concurrently, wait for all
+- **Fan-out/fan-in**: Spawn N instances, aggregate results
+- **Conditional delegation**: Route to different sub-workflow based on condition
+- **Interactive**: Invoke from conversation, present results, refine
+
+Are there others? How complex does this need to be?
+
+### 8.6 State and Memory
+
+**Question**: What state needs to persist, and for how long?
+
+Types of state:
+
+- **Conversation history**: For meta-workflow analysis and cross-session continuity
+- **Execution state**: Where am I in this workflow run?
+- **Accumulated data**: Results collected so far in this run
+- **Cross-run state**: Deduplication records, previously-seen items
+- **User preferences**: Explicit and inferred settings
+
+Considerations:
+
+- Multi-step research task needs to resume after days
+- Meta-workflow needs access to conversation history
+- Storage costs scale with retention
+- What’s the retention policy?
+
+### 8.7 Feedback Granularity
+
+**Question**: At what level do users provide feedback?
+
+Options:
+
+- **Per-output**: “This classification was wrong”
+- **Per-interaction**: “That answer was helpful / not helpful”
+- **Per-workflow-run**: “This workflow execution succeeded/failed”
+- **Implicit**: Infer from user behavior (edited the draft, ignored the notification)
+
+Considerations:
+
+- Finer granularity = more data, more user burden
+- Coarser granularity = less actionable signal
+- Implicit feedback scales but may be misinterpreted
+
+### 8.8 Learning Mechanisms
+
+**Question**: How does feedback translate to improved behavior?
+
+Options:
+
+- **Prompt refinement**: Adjust instructions to AI primitives
+- **Example injection**: Add user-provided examples to context
+- **Threshold adjustment**: Change confidence thresholds for routing
+- **Model fine-tuning**: Periodically retrain on collected feedback
+- **Retrieval augmentation**: Store feedback as retrievable context
+
+Considerations:
+
+- Different mechanisms suit different feedback types
+- Some are immediate (prompt refinement), others batched (fine-tuning)
+- User should understand what the system learned
+
+### 8.9 Multi-User Considerations
+
+**Question**: How does the platform handle households or small teams?
+
+Considerations:
+
+- Shared workflows vs. personal workflows
+- Shared integrations (family calendar) vs. personal (work email)
+- Privacy between users
+- Conflicting preferences
+
+(May be out of scope for v1, but affects foundational design)
+
+-----
+
+## 9. Success Metrics
+
+### 9.1 Conversational Effectiveness
+
+- Request completion rate (did the assistant accomplish what was asked?)
+- Turns to resolution (fewer = better understanding)
+- Integration coverage (how many services connected and used)
+- Tool invocation success rate
+
+### 9.2 Workflow Graduation
+
+- Graduation rate (conversations → workflows)
+- User acceptance of graduation suggestions
+- Time from pattern emergence to workflow creation
+
+### 9.3 Workflow Execution
+
+- Workflow completion rate
+- Error rate by primitive type
+- Human intervention rate (lower = better for trusted workflows)
+
+### 9.4 Learning Effectiveness
+
+- Classification accuracy over time (should improve)
+- User override frequency (should decrease)
+- Feedback volume (engagement signal)
+- Meta-workflow suggestion acceptance rate
+
+### 9.5 Reliability
+
+- Uptime
+- Missed scheduled executions
+- Mean time to recovery
+- Data loss incidents (target: zero)
+
+-----
+
+## 10. Out of Scope (v1)
+
+- **Multi-user/team features** — Single-user or household focus
+- **Mobile apps** — Web/API access only
+- **Voice interface** — Text-based interaction
+- **Real-time collaboration** — Async operation model
+- **Marketplace** — No workflow/connector sharing infrastructure
+- **Hosted offering** — Self-hosted only
+
+-----
+
+## Appendix A: Existing Platform Limitations Summary
+
+|Platform    |Key Limitation                                             |
+|------------|-----------------------------------------------------------|
+|n8n         |Fair-code license; no authoring assistance; AI bolted on   |
+|Activepieces|No native local LLM; no learning; no authoring assistance  |
+|Windmill    |AGPL + proprietary; SMTP-only email; enterprise lock-in    |
+|Huginn      |Unmaintained since 2022; no AI capabilities                |
+|Temporal    |Enterprise complexity; no AI-native features               |
+|LangGraph   |No scheduling; no integrations; library not platform       |
+|CrewAI      |No scheduling; no integrations; multi-agent focus only     |
+|Dify        |Chat-centric; no autonomous operation; limited coordination|
+
+-----
+
+## Appendix B: Glossary
+
+|Term                   |Definition                                                                                       |
+|-----------------------|-------------------------------------------------------------------------------------------------|
+|**Conversational Mode**|The primary interaction mode—user asks questions, assistant responds using available capabilities|
+|**Workflow**           |An explicit, inspectable sequence of steps that runs autonomously on triggers                    |
+|**AI Primitive**       |A bounded AI operation (classify, extract, generate, etc.) usable in conversation or workflows   |
+|**Trigger**            |An event or condition that causes a workflow to execute                                          |
+|**Connector**          |An integration with an external service (email, calendar, etc.)                                  |
+|**Coordination**       |Invoking sub-workflows or tools, possibly in parallel                                            |
+|**Graduation**         |The process of turning a repeated conversational pattern into an autonomous workflow             |
+|**Meta-workflow**      |A workflow that operates on the platform itself (e.g., analyzing conversation patterns)          |
+|**Feedback**           |User signal about AI primitive output quality                                                    |
+|**Authoring Agent**    |The AI capability that helps users create and refine workflows                                   |
+|**Human-in-the-Loop**  |Pausing workflow execution for human review/approval                                             |
