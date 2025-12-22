@@ -126,7 +126,7 @@ flowchart TB
 
         SCHED[Scheduler<br/>Cron triggers<br/>Missed execution handling]
 
-        DB[(Database<br/>Type TBD)]
+        DB[(PostgreSQL<br/>SQLx driver)]
 
         EVENTS[Event Bus<br/>Architecture TBD<br/>Internal communication]
     end
@@ -157,7 +157,7 @@ flowchart TB
 | **Workflow Engine** | Rust | Executes workflows, manages state machines, handles step execution |
 | **Integration Adapters** | Rust | Protocol-specific adapters for external services |
 | **Scheduler** | Rust | Manages scheduled triggers, handles missed executions |
-| **Database** | **TBD** | Persistent storage for workflows, state, history, credentials |
+| **Database** | PostgreSQL (SQLx) | Persistent storage for workflows, state, history, credentials |
 | **Event Bus** | **TBD** | Internal async communication between components |
 
 ---
@@ -482,10 +482,29 @@ From [PRD Section 6.1](../PRD.md#61-deployment):
 | Offline Capable | Core functionality works without internet (local models) |
 | Resource Efficient | Reasonable footprint when idle |
 
-### 8.2 Open Questions
+### 8.2 Database Deployment
 
-- Container/packaging strategy (TBD)
-- Volume and persistence strategy (TBD)
+PostgreSQL runs as a container sidecar via Docker Compose:
+
+```yaml
+# Conceptual structure (not final)
+services:
+  app:
+    # silver-telegram application
+    depends_on:
+      - postgres
+  postgres:
+    image: postgres:16
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+volumes:
+  pgdata:
+```
+
+### 8.3 Open Questions
+
+- Full deployment topology (single-node vs distributed)
+- Volume and backup strategy
 - Multi-node scaling approach (if needed)
 
 ---
@@ -583,13 +602,35 @@ Potential crates (pending design):
 
 ## 12. Architecture Decision Records
 
-**No ADRs finalized yet.** This section will document key architectural decisions as they are made.
+### 12.1 Finalized Decisions
 
-### 12.1 Pending Decisions
+#### ADR-001: PostgreSQL as Primary Database
+
+**Status**: Accepted
+
+**Context**: Need a database for workflow definitions, execution state, conversation history, credentials, and user data. Must support future multi-user scaling and concurrent writes.
+
+**Decision**: Use PostgreSQL with SQLx as the Rust driver.
+
+**Deployment**: Container sidecar via Docker Compose (Postgres container alongside the application).
+
+**Rationale**:
+- Concurrent write handling for multi-user scenarios
+- JSONB for flexible document storage where schema evolution is needed
+- Mature ecosystem with excellent SQLx support
+- Compile-time query checking via SQLx
+
+**Consequences**:
+- Requires Postgres container in deployment (not embedded like SQLite)
+- More operational complexity than SQLite, but standard Docker Compose pattern
+- Connection pooling needed for production use
+
+---
+
+### 12.2 Pending Decisions
 
 | Decision | Status | Notes |
 |----------|--------|-------|
-| Database choice | **OPEN** | |
 | Deployment topology | **OPEN** | Single-node vs distributed |
 | Multi-user data model | **OPEN** | User indicated preference for multi-user aware |
 | Event bus / message queue | **OPEN** | In-process vs external |
@@ -620,7 +661,7 @@ High-level phases (no time estimates). Actual order depends on design session ou
 ### Phase 1: Foundation
 
 - Core domain types in `lib/core`
-- Database schema (once database choice is made)
+- PostgreSQL schema and SQLx migrations
 - Basic workflow engine structure
 
 ### Phase 2: Conversation
