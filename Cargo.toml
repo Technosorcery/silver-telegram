@@ -1,0 +1,56 @@
+[workspace]
+members = ["lib/*", "bin/*"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+authors = ["Jacob Helwig <jacob@technosorcery.net>"]
+license = "FSL-1.1-Apache-2.0"
+repository = "https://github.com/Technosorcery/silver-telegram"
+
+[workspace.dependencies]
+# Workspace crates
+silver-telegram-core = { path = "lib/core" }
+
+# Error handling
+rootcause = "0.11.0"
+
+# Web framework
+leptos = "0.8.15"
+leptos_router = "0.8"
+leptos_meta = "0.8"
+leptos_axum = "0.8"
+
+# Server runtime
+axum = "0.8"
+tokio = { version = "1", features = ["rt-multi-thread", "signal"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["fs"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Logging/tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# WASM
+wasm-bindgen = "0.2"
+console_error_panic_hook = "0.1"
+
+# Utilities
+chrono = { version = "0.4", features = ["serde"] }
+ulid = { version = "1", features = ["serde"] }
+
+# Dev dependencies
+tempfile = "3"
+
+# Optimized profile for WASM bundle in release mode
+[profile.wasm-release]
+inherits = "release"
+opt-level = 'z'
+lto = true
+codegen-units = 1
+panic = "abort"

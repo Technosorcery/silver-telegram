@@ -698,7 +698,7 @@ Considerations:
 
 ## 10. Out of Scope (v1)
 
-- **Multi-user/team features** — Single-user or household focus
+- **Granular permissions model** — OIDC authentication from the start, but permissions beyond "logged in or not" come later
 - **Mobile apps** — Web/API access only
 - **Voice interface** — Text-based interaction
 - **Real-time collaboration** — Async operation model
