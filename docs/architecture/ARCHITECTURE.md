@@ -405,27 +405,117 @@ This decouples authorization from the data model, allowing flexible sharing with
 
 ## 6. Workflow Definition Format
 
-> **REQUIRES SEPARATE DESIGN SESSION**
+### 6.1 Graph Model
 
-Workflows are graphs of nodes with inputs/outputs. The detailed representation format requires dedicated design work before implementation.
+Workflows are directed graphs using **petgraph**:
 
-### 6.1 Key Concepts
+```rust
+use petgraph::graph::DiGraph;
 
-- **Nodes**: Individual operations (AI primitives, integrations, control flow)
-- **Edges**: Data flow connections between nodes
-- **Inputs/Outputs**: Typed data flowing through the graph
-- **Triggers**: What initiates the workflow
+type WorkflowGraph = DiGraph<Node, EdgeWeight>;
 
-### 6.2 Design Considerations
+struct Node {
+    id: NodeId,
+    node_type: NodeType,
+    config: NodeConfig,
+    inputs: Vec<InputPort>,
+    outputs: Vec<OutputPort>,
+}
 
-From [PRD Section 8.2](../PRD.md#82-workflow-representation):
+struct EdgeWeight {
+    source_port: PortName,
+    destination_port: PortName,
+}
 
-- Must be inspectable (user can understand what it does)
-- Should be version-controllable (diffable, mergeable)
-- Authoring agent needs to produce it
-- User may need to edit it manually
+struct InputPort {
+    name: PortName,
+    schema: JsonSchema,  // Structural typing
+    required: bool,
+}
 
-### 6.3 Workflow Execution Patterns
+struct OutputPort {
+    name: PortName,
+    schema: JsonSchema,
+}
+```
+
+### 6.2 Node Categories
+
+| Category | Examples | Notes |
+|----------|----------|-------|
+| **Trigger** | Schedule, Webhook, IntegrationEvent | Entry points; denormalized for execution |
+| **AI Layer** | LLM Call, Coordinate | Per ADR-004 discussion |
+| **Integration** | email.fetch, calendar.list | Protocol-specific actions |
+| **Transform** | Expression-based data manipulation | For structured data |
+| **Control Flow** | Branch, Loop, Parallel, Join | Graph structure |
+| **Output** | Notify, Log, HTTP Response | Terminal actions |
+
+### 6.3 Port Typing
+
+**Structural/schema-based**: Ports have JSON Schemas. Connections are valid if schemas are compatible.
+
+### 6.4 Triggers
+
+**Triggers are nodes** in the graph (source of truth for users), but **denormalized to a triggers table** for execution efficiency:
+
+- On workflow save: reconcile triggers table (insert new, update modified, delete removed)
+- On trigger fire: query triggers table (indexed), load workflow, start at trigger node
+
+### 6.5 Storage
+
+```sql
+CREATE TABLE workflows (
+    id ULID PRIMARY KEY,
+    name TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    graph JSONB NOT NULL,       -- Serialized petgraph structure
+    created_at TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ
+);
+
+CREATE TABLE triggers (
+    id ULID PRIMARY KEY,
+    workflow_id ULID REFERENCES workflows(id) ON DELETE CASCADE,
+    node_id TEXT NOT NULL,
+    trigger_type TEXT NOT NULL,
+
+    -- Indexed columns for efficient lookup:
+    cron_expression TEXT,
+    webhook_path TEXT,
+    event_type TEXT,
+    integration_account_id ULID,
+
+    config JSONB,
+    enabled BOOLEAN DEFAULT TRUE
+);
+
+CREATE INDEX idx_triggers_cron ON triggers(cron_expression)
+    WHERE trigger_type = 'schedule' AND enabled;
+CREATE INDEX idx_triggers_webhook ON triggers(webhook_path)
+    WHERE trigger_type = 'webhook' AND enabled;
+CREATE INDEX idx_triggers_event ON triggers(event_type, integration_account_id)
+    WHERE trigger_type = 'event' AND enabled;
+```
+
+### 6.6 Expression Language
+
+> **DEFERRED**: Expression language for transforms and dynamic config not yet selected.
+
+**Requirements established:**
+- JSON transformation capability
+- Conditional expressions
+- String templating with data interpolation
+- Must have viable Rust implementation
+
+**Candidates considered:** JSONata (Rust lib incomplete), CEL (more validation-focused), Tera/Jinja (less powerful transforms).
+
+### 6.7 Open Questions
+
+- **Execution model**: How engine traverses graph, handles parallel paths, manages state
+- **Versioning**: How workflow changes are tracked, rollback, draft vs published
+- **Workflow run state**: State management during execution
+
+### 6.8 Workflow Execution Patterns
 
 The workflow engine (not the Coordinate AI primitive) handles these static execution patterns:
 
@@ -775,12 +865,52 @@ definition workflow {
 
 ---
 
+#### ADR-005: Workflow Representation as petgraph with JSONB Storage
+
+**Status**: Accepted
+
+**Context**: Need to define how workflows (graphs of nodes with inputs/outputs) are represented, stored, and how triggers are indexed for efficient execution.
+
+**Decisions**:
+
+1. **Graph structure**: `petgraph::DiGraph<Node, EdgeWeight>` where edge weights contain port routing (source_port, destination_port)
+
+2. **Port typing**: Structural/schema-based using JSON Schema. Connections valid if schemas compatible.
+
+3. **Node categories**: Trigger, AI Layer, Integration, Transform, Control Flow, Output
+
+4. **Triggers**: Nodes in graph (source of truth) but denormalized to indexed triggers table for execution efficiency. Reconciled on workflow save.
+
+5. **Storage**: Workflow metadata in columns, graph serialized to JSONB. Triggers table with indexed columns for cron, webhook path, event type.
+
+6. **IDs**: ULIDs throughout
+
+**Deferred**:
+- Expression language for transforms/dynamic config (requirements established, no viable Rust impl identified yet)
+- Execution model (graph traversal, parallel handling, state)
+- Versioning (change tracking, draft vs published)
+
+**Rationale**:
+- petgraph is mature, well-documented Rust graph library
+- JSONB allows flexible schema evolution for graph structure
+- Denormalized triggers avoid scanning all workflows on every trigger event
+- JSON Schema provides structural typing without custom type system
+
+**Consequences**:
+- Must serialize/deserialize petgraph to JSON (serde support exists)
+- Trigger reconciliation logic needed on every workflow save
+- Expression language decision blocks Transform node implementation
+
+---
+
 ### 12.2 Pending Decisions
 
 | Decision | Status | Notes |
 |----------|--------|-------|
 | General API design | **DEFERRED** | Not needed yet; Leptos server functions serve frontend only |
-| Workflow representation format | **OPEN** | Requires separate design session |
+| Expression language | **DEFERRED** | Requirements established; no viable Rust impl yet |
+| Workflow execution model | **OPEN** | Graph traversal, parallel paths, state management |
+| Workflow versioning | **OPEN** | Change tracking, rollback, draft vs published |
 | Context persistence strategy | **OPEN** | Cross-session context handling |
 
 ### 12.2 PRD Open Questions Mapping
@@ -788,10 +918,10 @@ definition workflow {
 | PRD Section | Question | Status |
 |-------------|----------|--------|
 | 8.1 | Conversational Context | **OPEN** |
-| 8.2 | Workflow Representation | **REQUIRES SEPARATE DESIGN** |
+| 8.2 | Workflow Representation | **DECIDED** - petgraph + JSONB storage (ADR-005) |
 | 8.3 | Graduation Criteria | **OPEN** |
 | 8.4 | AI Primitive Boundaries | **N/A** - per-node configuration |
-| 8.5 | Workflow Execution Patterns | **OPEN** - depends on workflow design |
+| 8.5 | Workflow Execution Patterns | **OPEN** - depends on execution model design |
 | 8.6 | State and Memory | **OPEN** |
 | 8.7 | Feedback Granularity | **OPEN** |
 | 8.8 | Learning Mechanisms | **OPEN** |

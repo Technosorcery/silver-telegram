@@ -46,6 +46,9 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 wasm-bindgen = "0.2"
 console_error_panic_hook = "0.1"
 
+# Graph processing
+petgraph = { version = "0.7", features = ["serde-1"] }
+
 # Utilities
 chrono = { version = "0.4", features = ["serde"] }
 ulid = { version = "1", features = ["serde"] }
