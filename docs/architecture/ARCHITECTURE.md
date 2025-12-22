@@ -128,6 +128,8 @@ flowchart TB
 
         DB[(PostgreSQL<br/>SQLx driver)]
 
+        SPICE[SpiceDB<br/>Authorization<br/>Relationships]
+
         EVENTS[Event Bus<br/>Architecture TBD<br/>Internal communication]
     end
 
@@ -158,6 +160,7 @@ flowchart TB
 | **Integration Adapters** | Rust | Protocol-specific adapters for external services |
 | **Scheduler** | Rust | Manages scheduled triggers, handles missed executions |
 | **Database** | PostgreSQL (SQLx) | Persistent storage for workflows, state, history, credentials |
+| **SpiceDB** | SpiceDB (Zanzibar) | Relationship-based authorization, permission checks |
 | **Event Bus** | **TBD** | Internal async communication between components |
 
 ---
@@ -384,9 +387,17 @@ erDiagram
 | **LLM Invocation** | Record of an LLM Call or Coordinate execution |
 | **Feedback** | User feedback on LLM output |
 
-### 5.3 Open Questions
+### 5.3 Authorization Model
 
-> **OPEN**: Multi-user data model approach (PRD 8.9) - should the data model support user isolation from the start?
+Per ADR-002, authorization uses SpiceDB (Zanzibar-style relationships):
+
+- **Resources don't have `user_id` columns** - ownership and permissions are relationships in SpiceDB
+- **Permission checks via SpiceDB API** - "Can user X do action Y on resource Z?"
+- **Relationships stored separately** - e.g., `workflow:123#owner@user:alice`
+
+This decouples authorization from the data model, allowing flexible sharing without schema changes.
+
+### 5.4 Open Questions
 
 > **OPEN**: Retention policies (PRD 8.6) - what persists, for how long?
 
@@ -482,9 +493,9 @@ From [PRD Section 6.1](../PRD.md#61-deployment):
 | Offline Capable | Core functionality works without internet (local models) |
 | Resource Efficient | Reasonable footprint when idle |
 
-### 8.2 Database Deployment
+### 8.2 Container Sidecar Services
 
-PostgreSQL runs as a container sidecar via Docker Compose:
+PostgreSQL and SpiceDB run as container sidecars via Docker Compose:
 
 ```yaml
 # Conceptual structure (not final)
@@ -493,10 +504,17 @@ services:
     # silver-telegram application
     depends_on:
       - postgres
+      - spicedb
   postgres:
     image: postgres:16
     volumes:
       - pgdata:/var/lib/postgresql/data
+  spicedb:
+    image: authzed/spicedb
+    command: serve
+    depends_on:
+      - postgres
+    # SpiceDB uses Postgres as its storage backend
 volumes:
   pgdata:
 ```
@@ -629,12 +647,69 @@ Potential crates (pending design):
 
 ---
 
+#### ADR-002: SpiceDB for Relationship-Based Authorization
+
+**Status**: Accepted
+
+**Context**: Need multi-user authorization that supports:
+- User isolation by default
+- Household/shared integrations (e.g., family calendar)
+- Future sharing of workflows, templates
+- Flexible permission model without schema changes per feature
+
+**Decision**: Use SpiceDB (Zanzibar-style) as a sidecar container for relationship-based authorization.
+
+**Deployment**: SpiceDB container in Docker Compose, using Postgres as its storage backend.
+
+**Key concepts**:
+- Resources (workflows, integrations, etc.) don't have `user_id` columns
+- Authorization relationships stored in SpiceDB: `workflow:123#owner@user:alice`
+- Permission checks via SpiceDB API: "Can user X do action Y on resource Z?"
+- Permissions flow through relationships (user → group → resource)
+
+**Example schema** (conceptual, to be refined):
+```zed
+definition user {}
+
+definition group {
+    relation member: user
+}
+
+definition integration_account {
+    relation owner: user
+    relation user: user | group#member
+    permission use = owner + user
+}
+
+definition workflow {
+    relation owner: user
+    relation viewer: user | group#member
+    relation editor: user | group#member
+    permission view = owner + viewer + editor
+    permission edit = owner + editor
+    permission delete = owner
+}
+```
+
+**Rationale**:
+- Decouples authorization from data model
+- Sharing doesn't require altering resource tables
+- Consistent permission model across all resources
+- Battle-tested Zanzibar semantics
+
+**Consequences**:
+- Additional container in deployment
+- All permission checks go through SpiceDB API (latency consideration)
+- Need to keep SpiceDB relationships in sync with resource lifecycle
+- Learning curve for Zanzibar concepts
+
+---
+
 ### 12.2 Pending Decisions
 
 | Decision | Status | Notes |
 |----------|--------|-------|
 | Deployment topology | **OPEN** | Single-node vs distributed |
-| Multi-user data model | **OPEN** | User indicated preference for multi-user aware |
 | Event bus / message queue | **OPEN** | In-process vs external |
 | General API design | **DEFERRED** | Not needed yet; Leptos server functions serve frontend only |
 | Workflow representation format | **OPEN** | Requires separate design session |
@@ -652,7 +727,7 @@ Potential crates (pending design):
 | 8.6 | State and Memory | **OPEN** |
 | 8.7 | Feedback Granularity | **OPEN** |
 | 8.8 | Learning Mechanisms | **OPEN** |
-| 8.9 | Multi-User | **OPEN** |
+| 8.9 | Multi-User | **DECIDED** - SpiceDB for relationship-based authz (ADR-002) |
 
 ---
 
