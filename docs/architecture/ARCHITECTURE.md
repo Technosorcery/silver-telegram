@@ -525,18 +525,32 @@ CREATE INDEX idx_triggers_event ON triggers(event_type, integration_account_id)
 
 The workflow engine (not the Coordinate AI primitive) handles these static execution patterns:
 
-| Pattern | Description | Example |
-|---------|-------------|---------|
-| **Sequential** | A then B then C | Fetch email → Classify → Generate response |
-| **Parallel** | A, B, C concurrently, wait for all | Search flights + Search hotels + Search events |
-| **Fan-out/fan-in** | Spawn N instances, aggregate results | Process each email in inbox |
-| **Conditional** | Route based on condition | If urgent → notify; else → queue |
+| Pattern | Mechanism | Vec<T> handling |
+|---------|-----------|-----------------|
+| **Sequential** | Linear graph edges | Passed as-is |
+| **Graph parallel** | Multiple outgoing edges (no FanOut) | Copied as-is to each downstream node |
+| **FanOut parallel** | FanOut node iterates over items | Exploded into individual items |
+| **Combined** | FanOut + multiple outgoing edges | Each item sent to all downstream nodes |
+| **Conditional** | Branch node with predicate per edge | TBD |
 
-These are defined in the workflow graph structure and executed by the workflow engine.
+**FanOut node**:
+- Waits for all inputs (barrier), flattens arrays into single collection
+- Each input item must be compatible with schemas of ALL direct children
+- Each item processed through all downstream paths in parallel
+
+**FanIn node**:
+- Optional (FanOut doesn't require paired FanIn)
+- Scope defined by graph edge from FanIn to corresponding FanOut
+- All inputs must have non-empty common schema intersection
+- Output: `Vec<CommonSchema>`
+
+**Validation model**:
+- Construction time: Port schema compatibility between connected nodes
+- Runtime: Each node validates its output against its declared output schema (errors caught at source)
 
 **Distinct from Coordinate**: The Coordinate AI primitive (see [Section 4.4](#44-ai-layer-components)) handles *dynamic* orchestration where the LLM decides at runtime what to execute, how many rounds, and when to stop. Static patterns above are graph structure; Coordinate is LLM-controlled execution.
 
-> **OPEN**: Execution pattern implementation depends on workflow graph design.
+> **OPEN**: Conditional branching not yet discussed.
 
 ---
 
@@ -915,7 +929,7 @@ definition workflow {
 |----------|--------|-------|
 | General API design | **DEFERRED** | Not needed yet; Leptos server functions serve frontend only |
 | Expression language | **DEFERRED** | Requirements established; no viable Rust impl yet |
-| Workflow execution model | **OPEN** | Graph traversal, parallel paths, state management |
+| Workflow execution model | **PARTIAL** | Parallel/FanOut decided; conditional, traversal, state TBD |
 | Workflow versioning | **OPEN** | Change tracking, rollback, draft vs published |
 | Context persistence strategy | **DECIDED** | See PRD 8.1 and Section 4.2 |
 
@@ -927,7 +941,7 @@ definition workflow {
 | 8.2 | Workflow Representation | **DECIDED** - petgraph + JSONB storage (ADR-005) |
 | 8.3 | Graduation Criteria | **PARTIAL** - Working framework; needs refinement before implementation |
 | 8.4 | AI Primitive Boundaries | **N/A** - per-node configuration |
-| 8.5 | Workflow Execution Patterns | **OPEN** - depends on execution model design |
+| 8.5 | Workflow Execution Patterns | **PARTIAL** - Sequential/parallel decided; conditional TBD |
 | 8.6 | State and Memory | **OPEN** |
 | 8.7 | Feedback Granularity | **OPEN** |
 | 8.8 | Learning Mechanisms | **OPEN** |

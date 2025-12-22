@@ -649,16 +649,44 @@ Considerations:
 
 ### 8.5 Workflow Execution Patterns
 
-**Question**: What patterns of workflow execution are needed?
+**Status**: Partially decided (sequential, parallel decided; conditional TBD)
 
-These are patterns the workflow engine handles for static workflow graphs (distinct from the Coordinate AI primitive, which handles dynamic LLM-driven orchestration):
+These are patterns the workflow engine handles for static workflow graphs (distinct from the Coordinate AI primitive, which handles dynamic LLM-driven orchestration).
 
-- **Sequential**: A then B then C
-- **Parallel**: A, B, C concurrently, wait for all
-- **Fan-out/fan-in**: Spawn N instances, aggregate results
-- **Conditional**: Route to different path based on condition
+#### Decided patterns
 
-Are there others? How complex does this need to be?
+| Pattern | Mechanism | Vec<T> handling |
+|---------|-----------|-----------------|
+| **Sequential** | Linear graph edges | Passed as-is |
+| **Graph parallel** | Multiple outgoing edges (no FanOut) | Copied as-is to each downstream node |
+| **FanOut parallel** | FanOut node iterates over items | Exploded into individual items |
+| **Combined** | FanOut + multiple outgoing edges | Each item sent to all downstream nodes |
+
+#### FanOut node
+
+- **Inputs**: Waits for all inputs (barrier behavior), flattens arrays into single collection
+- **Validation**: Each input item must be compatible with schemas of ALL direct children
+- **Execution**: Each item processed through all downstream paths in parallel
+
+#### FanIn node
+
+- **Optional**: FanOut doesn't require a paired FanIn (valid to fan out for side effects only)
+- **Scope**: Edge from FanIn to its corresponding FanOut defines scope (no ID matching needed)
+- **Validation**: All inputs must have non-empty common schema intersection
+- **Output**: `Vec<CommonSchema>`
+
+#### Validation model
+
+| Stage | Check |
+|-------|-------|
+| **Construction** | Port schema compatibility between connected nodes |
+| **Runtime** | Each node validates its output against its declared output schema |
+
+Runtime validation at the source (node output) rather than destination (node input) makes debugging clearer: "Node X failed to satisfy its output schema."
+
+#### Open
+
+- **Conditional**: Branch node with predicate per outgoing edge (not yet discussed)
 
 ### 8.6 State and Memory
 
