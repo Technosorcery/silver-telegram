@@ -479,9 +479,18 @@ From [PRD Section 6.2](../PRD.md#62-privacy-and-security):
 
 ## 8. Deployment Architecture
 
-> **OPEN**: Deployment topology (single-node vs distributed) is not yet decided.
+### 8.1 Topology
 
-### 8.1 Design Considerations
+**Decision**: Single application instance for now, designed to allow horizontal scaling later.
+
+- All containers (app, Postgres, SpiceDB) run on a single node
+- Application code avoids patterns that block future horizontal scaling:
+  - No in-memory session state (use database)
+  - No in-process locks for cross-request coordination (use database)
+  - Scheduler must support single-writer or leader election pattern
+  - Event handling must be durable (not purely in-memory)
+
+### 8.2 Design Considerations
 
 From [PRD Section 6.1](../PRD.md#61-deployment):
 
@@ -519,11 +528,9 @@ volumes:
   pgdata:
 ```
 
-### 8.3 Open Questions
+### 8.4 Open Questions
 
-- Full deployment topology (single-node vs distributed)
 - Volume and backup strategy
-- Multi-node scaling approach (if needed)
 
 ---
 
@@ -705,12 +712,36 @@ definition workflow {
 
 ---
 
+#### ADR-003: Single Instance with Scaling-Compatible Patterns
+
+**Status**: Accepted
+
+**Context**: Need to define deployment topology - single-node vs distributed, single instance vs multiple.
+
+**Decision**: Single application instance for now, designed to allow horizontal scaling later.
+
+**Constraints on implementation**:
+- No in-memory session state (use database-backed sessions)
+- No in-process locks for cross-request coordination
+- Scheduler must support single-writer or leader election pattern
+- Event handling must be durable, not purely in-memory
+
+**Rationale**:
+- Home lab / self-hosted use case doesn't need horizontal scaling initially
+- Avoiding anti-patterns now prevents costly rewrites later
+- Simpler operations for single instance deployment
+
+**Consequences**:
+- Some implementation patterns are ruled out (e.g., in-memory caches for session state)
+- Event bus decision must consider durability requirement
+
+---
+
 ### 12.2 Pending Decisions
 
 | Decision | Status | Notes |
 |----------|--------|-------|
-| Deployment topology | **OPEN** | Single-node vs distributed |
-| Event bus / message queue | **OPEN** | In-process vs external |
+| Event bus / message queue | **OPEN** | In-process vs external; must be durable per ADR-003 |
 | General API design | **DEFERRED** | Not needed yet; Leptos server functions serve frontend only |
 | Workflow representation format | **OPEN** | Requires separate design session |
 | Context persistence strategy | **OPEN** | Cross-session context handling |
