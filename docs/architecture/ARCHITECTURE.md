@@ -194,7 +194,7 @@ flowchart TB
 | **Definition Store** | Persists workflow definitions with version history |
 | **Workflow Executor** | Executes workflows step-by-step, advancing through nodes |
 | **State Machine** | Tracks execution state for each workflow run |
-| **Node Registry** | Registry of available node types (AI primitives, integrations, control flow) |
+| **Node Registry** | Registry of available node types (AI layer, integrations, control flow) |
 | **Trigger Manager** | Connects triggers (schedule, event, manual) to workflows |
 | **Execution History** | Audit trail of all executions, inputs, outputs, decisions |
 
@@ -209,7 +209,7 @@ flowchart TB
 
         CS[Context Store<br/>Conversation history<br/>Extracted facts]
 
-        AI[AI Primitive Dispatcher<br/>Routes to AI backends]
+        AI[AI Layer Interface<br/>LLM Call and Coordinate]
 
         TR[Tool Registry<br/>Available tools]
 
@@ -226,7 +226,7 @@ flowchart TB
 |-----------|----------------|
 | **Session Manager** | Manages active conversation session lifecycle |
 | **Context Store** | Stores conversation history and extracted context |
-| **AI Primitive Dispatcher** | Routes AI primitive requests to appropriate backends |
+| **AI Layer Interface** | Interface to AI primitives (LLM Call, Coordinate) |
 | **Tool Registry** | Registry of tools available during conversation |
 | **Authoring Controller** | Handles workflow creation from conversation |
 
@@ -266,55 +266,77 @@ flowchart TB
 | **Credential Vault** | Encrypted storage for integration credentials |
 | **Rate Limiter** | Per-integration rate limiting to respect external API constraints |
 
-### 4.4 AI Primitives Components
+### 4.4 AI Layer Components
 
 ```mermaid
 flowchart TB
-    subgraph AI Primitives
-        PT[Primitive Trait<br/>Common interface]
-
-        CLASSIFY[Classify<br/>Category assignment]
-        EXTRACT[Extract<br/>Structured extraction]
-        GENERATE[Generate<br/>Text generation]
-        SUMMARIZE[Summarize<br/>Condensation]
-        SCORE[Score<br/>Numeric scoring]
-        DEDUP[Deduplicate<br/>Similarity detection]
-        DECIDE[Decide<br/>Option selection]
-        COORD[Coordinate<br/>Sub-task orchestration]
+    subgraph AI Layer
+        subgraph Primitives
+            CALL[LLM Call<br/>Single-shot inference]
+            COORD[Coordinate<br/>LLM-driven execution loop]
+        end
 
         LLM[LLM Backend<br/>Provider abstraction]
 
         PROMPTS[Prompt Registry<br/>Versioned templates]
 
+        SCHEMA[Output Schema<br/>Structured output handling]
+
         FB[Feedback Store<br/>User feedback tracking]
     end
 
-    CLASSIFY -.->|implements| PT
-    EXTRACT -.->|implements| PT
-    GENERATE -.->|implements| PT
-    SUMMARIZE -.->|implements| PT
-    SCORE -.->|implements| PT
-    DEDUP -.->|implements| PT
-    DECIDE -.->|implements| PT
-    COORD -.->|implements| PT
-
-    PT --> LLM
-    PT --> PROMPTS
-    PT --> FB
+    CALL --> LLM
+    CALL --> PROMPTS
+    CALL --> SCHEMA
+    COORD --> CALL
+    COORD --> FB
 ```
 
-| Primitive | Input | Output | Example Use |
-|-----------|-------|--------|-------------|
-| **Classify** | Content + categories | Category + confidence | "Is this email misdirected?" |
-| **Extract** | Content + schema | Structured data | "Pull out dates, locations, budget" |
-| **Generate** | Context + instructions | Text | "Write a polite redirect email" |
-| **Summarize** | Content + constraints | Condensed text | "Summarize these 10 emails" |
-| **Score** | Content + criteria | Numeric score | "How relevant to my interests?" |
-| **Deduplicate** | Item + recent items | Is duplicate (bool) | "Have I seen this already?" |
-| **Decide** | Context + options + criteria | Selected option | "Which response is best?" |
-| **Coordinate** | Sub-workflow/tool specs | Aggregated results | "Run these searches in parallel" |
+#### Fundamental Primitives
 
-> **Note**: AI primitive behavior is configured per-node within workflows via prompts and validation, not as a system-wide constraint level.
+There are two architecturally distinct AI primitives:
+
+| Primitive | Nature | Description |
+|-----------|--------|-------------|
+| **LLM Call** | Single-shot inference | Context + prompt + optional output schema → output |
+| **Coordinate** | LLM-driven loop | Goal → (decide actions → execute → evaluate) → repeat until done |
+
+**LLM Call** is stateless, single-shot inference. The LLM receives context and a prompt, optionally constrained by an output schema, and produces a response.
+
+**Coordinate** is an iterative process where the LLM controls execution flow:
+1. LLM evaluates context and goal
+2. LLM decides what operations to run (and how many)
+3. Operations execute (tools, sub-workflows, integrations)
+4. LLM evaluates results
+5. LLM decides: done, or more operations needed?
+6. Repeat until done
+
+The key distinction: in Coordinate, the LLM decides the control flow dynamically, not just producing output. It can invoke multiple rounds of operations, reacting to results of previous rounds.
+
+#### Workflow Node Types
+
+The PRD describes several user-facing operations (Classify, Generate, Summarize, Extract, Score, Deduplicate, Decide). These are **workflow node types**, not distinct primitives. They are all built on **LLM Call** with different configurations:
+
+| Node Type | Implementation |
+|-----------|----------------|
+| **Classify** | LLM Call with prompt asking to categorize, output schema = {category, confidence} |
+| **Generate** | LLM Call with free-form output |
+| **Summarize** | LLM Call with prompt asking for condensation |
+| **Extract** | LLM Call with prompt asking to pull out data, output schema = user-defined structure |
+| **Score** | LLM Call with output schema = numeric value |
+| **Deduplicate** | LLM Call with output schema = boolean |
+| **Decide** | LLM Call with prompt asking to select, output schema = one of the provided options |
+
+These node types provide semantic clarity in workflow definitions and can have specialized prompt templates, but they share the same underlying LLM Call primitive.
+
+#### Supporting Components
+
+| Component | Responsibility |
+|-----------|----------------|
+| **LLM Backend** | Provider abstraction (local Ollama, cloud APIs) |
+| **Prompt Registry** | Versioned prompt templates for node types |
+| **Output Schema** | Structured output handling (JSON schema constraints) |
+| **Feedback Store** | User feedback on AI outputs for improvement |
 
 ---
 
@@ -340,7 +362,7 @@ erDiagram
 
     INTEGRATION_ACCOUNT ||--o{ CREDENTIAL : stores
 
-    AI_PRIMITIVE_INVOCATION ||--o{ FEEDBACK : receives
+    LLM_INVOCATION ||--o{ FEEDBACK : receives
 ```
 
 ### 5.2 Entity Descriptions
@@ -356,11 +378,11 @@ erDiagram
 | **Workflow Run** | Single execution of a workflow |
 | **Trigger** | What initiates a workflow (schedule, event, manual) |
 | **Node Execution** | Execution record for a single node in a run |
-| **Decision Trace** | Explanation of AI primitive decision |
+| **Decision Trace** | Explanation of LLM decision (for Coordinate loops and complex calls) |
 | **Integration Account** | Configured external service connection |
 | **Credential** | Encrypted credential for an integration |
-| **AI Primitive Invocation** | Record of an AI primitive call |
-| **Feedback** | User feedback on AI primitive output |
+| **LLM Invocation** | Record of an LLM Call or Coordinate execution |
+| **Feedback** | User feedback on LLM output |
 
 ### 5.3 Open Questions
 
@@ -500,9 +522,9 @@ Considerations:
 
 ### 10.2 Decision Traces
 
-- AI primitive invocations record reasoning
-- Classification decisions include confidence and alternatives considered
-- Generation outputs traceable to prompts and context
+- LLM invocations record reasoning
+- Coordinate loops record each iteration's decisions and actions
+- Outputs traceable to prompts, context, and output schemas
 
 ### 10.3 Health Checks
 
@@ -517,7 +539,7 @@ From [PRD Section 5.8](../PRD.md#58-observability):
 | Metric Category | Examples |
 |-----------------|----------|
 | Execution | Workflow completion rate, error rate, latency |
-| AI Primitives | Classification accuracy, generation quality signals |
+| AI Layer | LLM call latency, Coordinate iteration counts, output quality signals |
 | Resources | Memory usage, database size, queue depth |
 
 ---
@@ -548,7 +570,7 @@ silver-telegram/
 Potential crates (pending design):
 - `workflow-engine` - Workflow execution
 - `conversation` - Conversation management
-- `ai-primitives` - AI primitive implementations
+- `ai` - AI layer (LLM Call, Coordinate, LLM backend abstraction)
 - `integrations` - Integration framework and adapters
 - `scheduler` - Trigger scheduling
 
@@ -599,7 +621,7 @@ High-level phases (no time estimates). Actual order depends on design session ou
 ### Phase 2: Conversation
 
 - Session management
-- AI primitive abstraction
+- AI layer (LLM Call, Coordinate primitives)
 - LLM backend integration
 
 ### Phase 3: Workflows
