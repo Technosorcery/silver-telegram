@@ -414,17 +414,22 @@ From [PRD Section 8.2](../PRD.md#82-workflow-representation):
 - Authoring agent needs to produce it
 - User may need to edit it manually
 
-### 6.3 Coordination Patterns
+### 6.3 Workflow Execution Patterns
 
-From [PRD Section 8.5](../PRD.md#85-coordination-patterns):
+The workflow engine (not the Coordinate AI primitive) handles these static execution patterns:
 
-- **Sequential**: A then B then C
-- **Parallel**: A, B, C concurrently, wait for all
-- **Fan-out/fan-in**: Spawn N instances, aggregate results
-- **Conditional delegation**: Route to different sub-workflow based on condition
-- **Interactive**: Invoke from conversation, present results, refine
+| Pattern | Description | Example |
+|---------|-------------|---------|
+| **Sequential** | A then B then C | Fetch email → Classify → Generate response |
+| **Parallel** | A, B, C concurrently, wait for all | Search flights + Search hotels + Search events |
+| **Fan-out/fan-in** | Spawn N instances, aggregate results | Process each email in inbox |
+| **Conditional** | Route based on condition | If urgent → notify; else → queue |
 
-> **OPEN**: Coordination pattern implementation depends on workflow graph design.
+These are defined in the workflow graph structure and executed by the workflow engine.
+
+**Distinct from Coordinate**: The Coordinate AI primitive (see [Section 4.4](#44-ai-layer-components)) handles *dynamic* orchestration where the LLM decides at runtime what to execute, how many rounds, and when to stop. Static patterns above are graph structure; Coordinate is LLM-controlled execution.
+
+> **OPEN**: Execution pattern implementation depends on workflow graph design.
 
 ---
 
@@ -600,7 +605,7 @@ Potential crates (pending design):
 | 8.2 | Workflow Representation | **REQUIRES SEPARATE DESIGN** |
 | 8.3 | Graduation Criteria | **OPEN** |
 | 8.4 | AI Primitive Boundaries | **N/A** - per-node configuration |
-| 8.5 | Coordination Patterns | **OPEN** - depends on workflow design |
+| 8.5 | Workflow Execution Patterns | **OPEN** - depends on workflow design |
 | 8.6 | State and Memory | **OPEN** |
 | 8.7 | Feedback Granularity | **OPEN** |
 | 8.8 | Learning Mechanisms | **OPEN** |

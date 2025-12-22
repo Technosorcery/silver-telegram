@@ -349,14 +349,16 @@ AI-powered operations available both in conversation and as workflow steps.
 
 |Primitive      |Input                       |Output               |Example Use                        |
 |---------------|----------------------------|---------------------|-----------------------------------|
-|**Classify**   |Content + categories        |Category + confidence|“Is this email misdirected?”       |
-|**Extract**    |Content + schema            |Structured data      |“Pull out dates, locations, budget”|
-|**Generate**   |Context + instructions      |Text                 |“Write a polite redirect email”    |
-|**Summarize**  |Content + constraints       |Condensed text       |“Summarize these 10 emails”        |
-|**Score**      |Content + criteria          |Numeric score        |“How relevant to my interests?”    |
-|**Deduplicate**|Item + recent items         |Is duplicate (bool)  |“Have I seen this already?”        |
-|**Decide**     |Context + options + criteria|Selected option      |“Which response is best?”          |
-|**Coordinate** |Sub-workflow/tool specs     |Aggregated results   |“Run these searches in parallel”   |
+|**Classify**   |Content + categories        |Category + confidence|"Is this email misdirected?"       |
+|**Extract**    |Content + schema            |Structured data      |"Pull out dates, locations, budget"|
+|**Generate**   |Context + instructions      |Text                 |"Write a polite redirect email"    |
+|**Summarize**  |Content + constraints       |Condensed text       |"Summarize these 10 emails"        |
+|**Score**      |Content + criteria          |Numeric score        |"How relevant to my interests?"    |
+|**Deduplicate**|Item + recent items         |Is duplicate (bool)  |"Have I seen this already?"        |
+|**Decide**     |Context + options + criteria|Selected option      |"Which response is best?"          |
+|**Coordinate** |Goal + available tools      |Final result         |"Plan this trip" (multi-step research)|
+
+**Note on primitives**: At the implementation level, most primitives above (Classify, Extract, Generate, Summarize, Score, Deduplicate, Decide) are variations of a single LLM call with different prompts and output schemas. **Coordinate** is architecturally distinct—it's an LLM-driven execution loop where the model decides what actions to take, executes them, evaluates results, and repeats until the goal is achieved.
 
 ### 5.5 Integration Framework
 
@@ -576,17 +578,16 @@ Considerations:
 - Different use cases need different levels
 - Should this be configurable per-use?
 
-### 8.5 Coordination Patterns
+### 8.5 Workflow Execution Patterns
 
-**Question**: What patterns of coordination are needed?
+**Question**: What patterns of workflow execution are needed?
 
-Identified so far:
+These are patterns the workflow engine handles for static workflow graphs (distinct from the Coordinate AI primitive, which handles dynamic LLM-driven orchestration):
 
 - **Sequential**: A then B then C
 - **Parallel**: A, B, C concurrently, wait for all
 - **Fan-out/fan-in**: Spawn N instances, aggregate results
-- **Conditional delegation**: Route to different sub-workflow based on condition
-- **Interactive**: Invoke from conversation, present results, refine
+- **Conditional**: Route to different path based on condition
 
 Are there others? How complex does this need to be?
 
@@ -731,7 +732,7 @@ Considerations:
 |**AI Primitive**       |A bounded AI operation (classify, extract, generate, etc.) usable in conversation or workflows   |
 |**Trigger**            |An event or condition that causes a workflow to execute                                          |
 |**Connector**          |An integration with an external service (email, calendar, etc.)                                  |
-|**Coordination**       |Invoking sub-workflows or tools, possibly in parallel                                            |
+|**Coordinate**         |AI primitive: LLM-driven execution loop that decides what actions to take, executes, evaluates, and repeats|
 |**Graduation**         |The process of turning a repeated conversational pattern into an autonomous workflow             |
 |**Meta-workflow**      |A workflow that operates on the platform itself (e.g., analyzing conversation patterns)          |
 |**Feedback**           |User signal about AI primitive output quality                                                    |
