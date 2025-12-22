@@ -130,7 +130,7 @@ flowchart TB
 
         SPICE[SpiceDB<br/>Authorization<br/>Relationships]
 
-        EVENTS[Event Bus<br/>Architecture TBD<br/>Internal communication]
+        NATS[NATS + JetStream<br/>Event bus<br/>Durable messaging]
     end
 
     subgraph External
@@ -161,7 +161,7 @@ flowchart TB
 | **Scheduler** | Rust | Manages scheduled triggers, handles missed executions |
 | **Database** | PostgreSQL (SQLx) | Persistent storage for workflows, state, history, credentials |
 | **SpiceDB** | SpiceDB (Zanzibar) | Relationship-based authorization, permission checks |
-| **Event Bus** | **TBD** | Internal async communication between components |
+| **NATS** | NATS + JetStream | Event bus, durable messaging, pub/sub |
 
 ---
 
@@ -502,9 +502,9 @@ From [PRD Section 6.1](../PRD.md#61-deployment):
 | Offline Capable | Core functionality works without internet (local models) |
 | Resource Efficient | Reasonable footprint when idle |
 
-### 8.2 Container Sidecar Services
+### 8.3 Container Sidecar Services
 
-PostgreSQL and SpiceDB run as container sidecars via Docker Compose:
+PostgreSQL, SpiceDB, and NATS run as container sidecars via Docker Compose:
 
 ```yaml
 # Conceptual structure (not final)
@@ -514,6 +514,7 @@ services:
     depends_on:
       - postgres
       - spicedb
+      - nats
   postgres:
     image: postgres:16
     volumes:
@@ -524,8 +525,14 @@ services:
     depends_on:
       - postgres
     # SpiceDB uses Postgres as its storage backend
+  nats:
+    image: nats:latest
+    command: ["--jetstream", "--store_dir", "/data"]
+    volumes:
+      - natsdata:/data
 volumes:
   pgdata:
+  natsdata:
 ```
 
 ### 8.4 Open Questions
@@ -737,11 +744,41 @@ definition workflow {
 
 ---
 
+#### ADR-004: NATS + JetStream for Event Bus
+
+**Status**: Accepted
+
+**Context**: Need durable event handling for workflow triggers, step completion, integration events, and internal notifications. Per ADR-003, must be durable (not purely in-memory).
+
+**Decision**: Use NATS with JetStream as the event bus.
+
+**Deployment**: NATS container in Docker Compose with JetStream enabled and persistent storage.
+
+**Usage pattern** (event-driven, not RPC):
+- Publish events to subjects: `workflow.completed.{id}`, `integration.email.received`
+- Consumers subscribe to patterns with durable subscriptions
+- JetStream provides persistence, replay, and exactly-once semantics
+
+**Rust client**: `async-nats` crate
+
+**Rationale**:
+- Lightweight (~10-20MB footprint)
+- Simple pub/sub model naturally discourages RPC-over-bus patterns
+- JetStream adds durability without changing the programming model
+- Clean async Rust client
+- Subject-based routing with wildcards fits event hierarchies
+
+**Consequences**:
+- Additional container in deployment
+- Need to manage JetStream streams and consumers
+- Events must be designed as fire-and-forget, not request/reply
+
+---
+
 ### 12.2 Pending Decisions
 
 | Decision | Status | Notes |
 |----------|--------|-------|
-| Event bus / message queue | **OPEN** | In-process vs external; must be durable per ADR-003 |
 | General API design | **DEFERRED** | Not needed yet; Leptos server functions serve frontend only |
 | Workflow representation format | **OPEN** | Requires separate design session |
 | Context persistence strategy | **OPEN** | Cross-session context handling |
