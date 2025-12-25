@@ -118,7 +118,9 @@ silver-telegram/
 ├── Cargo.toml              # Workspace root
 ├── rust-toolchain.toml     # Pins Rust version
 ├── docs/
-│   └── PRD.md              # Product requirements
+│   ├── PRD.md              # Product requirements
+│   └── architecture/
+│       └── ARCHITECTURE.md # Technical architecture (C4)
 ├── lib/
 │   └── core/               # Core domain types and errors
 │       └── src/
@@ -178,12 +180,31 @@ This project uses Leptos, a full-stack Rust framework that compiles to:
 - **Self-hosted**: Designed for personal infrastructure
 - **FSL License**: Source-available with non-compete restriction
 
-## Product Design Reference
+## Documentation
 
-See `docs/PRD.md` for:
+### Product Requirements (`docs/PRD.md`)
 
 - Use cases and workflows
 - Platform capabilities
 - Integration framework design
 - AI primitives specification
 - Non-functional requirements
+
+### Architecture (`docs/architecture/ARCHITECTURE.md`)
+
+**This document follows [C4 model](https://c4model.com/) conventions.**
+
+C4 documents describe architecture at abstraction levels (Context → Container → Component), focusing on:
+
+- Boxes: Systems, containers, components and their responsibilities
+- Relationships: How elements interact
+- Diagrams: Mermaid visualizations of structure
+
+**C4 documents must NOT contain:**
+
+- Implementation code (Rust structs, function signatures)
+- Database schemas (SQL CREATE statements)
+- API specifications (endpoint definitions)
+- Configuration examples
+
+Implementation details belong in separate specification documents or code comments. The architecture document captures *what* and *why* at a structural level, not *how* at the code level.

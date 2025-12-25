@@ -19,9 +19,8 @@
 8. [Deployment Architecture](#8-deployment-architecture)
 9. [API Design](#9-api-design)
 10. [Observability](#10-observability)
-11. [Crate Architecture](#11-crate-architecture)
+11. [Crate Structure](#11-crate-structure)
 12. [Architecture Decision Records](#12-architecture-decision-records)
-13. [Implementation Roadmap](#13-implementation-roadmap)
 
 ---
 
@@ -201,8 +200,6 @@ flowchart TB
 | **Trigger Manager** | Connects triggers (schedule, event, manual) to workflows |
 | **Execution History** | Audit trail of all executions, inputs, outputs, decisions |
 
-> **OPEN**: Workflow representation format requires a separate design session. Workflows are graphs of nodes with inputs/outputs. See [PRD Section 8.2](../PRD.md#82-workflow-representation).
-
 ### 4.2 Conversation Service Components
 
 ```mermaid
@@ -365,6 +362,7 @@ erDiagram
     WORKFLOW ||--o{ WORKFLOW_VERSION : has
     WORKFLOW ||--o{ WORKFLOW_RUN : executes
     WORKFLOW ||--o{ TRIGGER : has
+    WORKFLOW ||--o| WORKFLOW_MEMORY : has
 
     WORKFLOW_RUN ||--o{ NODE_EXECUTION : contains
     NODE_EXECUTION ||--o{ DECISION_TRACE : logs
@@ -385,6 +383,7 @@ erDiagram
 | **Workflow** | A defined automation |
 | **Workflow Version** | Version history for a workflow |
 | **Workflow Run** | Single execution of a workflow |
+| **Workflow Memory** | Opaque cross-run state managed by AI agents within a workflow |
 | **Trigger** | What initiates a workflow (schedule, event, manual) |
 | **Node Execution** | Execution record for a single node in a run |
 | **Decision Trace** | Explanation of LLM decision (for Coordinate loops and complex calls) |
@@ -403,9 +402,9 @@ Per ADR-002, authorization uses SpiceDB (Zanzibar-style relationships):
 
 This decouples authorization from the data model, allowing flexible sharing without schema changes.
 
-### 5.4 Open Questions
+### 5.4 Workflow Memory
 
-> **OPEN**: Retention policies (PRD 8.6) - what persists, for how long?
+Workflows can persist opaque state across runs via **workflow memory**. See [Section 6.9](#69-workflow-memory-nodes) for node descriptions and [PRD 8.6](../PRD.md#86-state-and-memory) for design decisions.
 
 ---
 
@@ -413,52 +412,38 @@ This decouples authorization from the data model, allowing flexible sharing with
 
 ### 6.1 Graph Model
 
-Workflows are directed graphs using **petgraph**:
+Workflows are directed graphs using **petgraph** (`DiGraph`).
 
-```rust
-use petgraph::graph::DiGraph;
+| Element | Description |
+|---------|-------------|
+| **Node** | A workflow step with a type, configuration, and named input/output ports |
+| **Edge** | Connection between nodes, carrying port routing (source port → destination port) |
+| **Port** | Named connection point with a JSON Schema defining accepted/produced data |
 
-type WorkflowGraph = DiGraph<Node, EdgeWeight>;
-
-struct Node {
-    id: NodeId,
-    node_type: NodeType,
-    config: NodeConfig,
-    inputs: Vec<InputPort>,
-    outputs: Vec<OutputPort>,
-}
-
-struct EdgeWeight {
-    source_port: PortName,
-    destination_port: PortName,
-}
-
-struct InputPort {
-    name: PortName,
-    schema: JsonSchema,  // Structural typing
-    required: bool,
-}
-
-struct OutputPort {
-    name: PortName,
-    schema: JsonSchema,
-}
-```
+Edges connect specific ports, not just nodes. This enables nodes with multiple inputs/outputs to route data explicitly.
 
 ### 6.2 Node Categories
 
 | Category | Examples | Notes |
 |----------|----------|-------|
 | **Trigger** | Schedule, Webhook, IntegrationEvent | Entry points; denormalized for execution |
-| **AI Layer** | LLM Call, Coordinate | Per ADR-004 discussion |
+| **AI Layer** | LLM Call, Coordinate | See [Section 4.4](#44-ai-layer-components) |
 | **Integration** | email.fetch, calendar.list | Protocol-specific actions |
 | **Transform** | Expression-based data manipulation | For structured data |
 | **Control Flow** | Branch, Loop, Parallel, Join | Graph structure |
+| **Memory** | Load Workflow Memory, Record Workflow Memory | Cross-run state for AI agents |
 | **Output** | Notify, Log, HTTP Response | Terminal actions |
 
 ### 6.3 Port Typing
 
 **Structural/schema-based**: Ports have JSON Schemas. Connections are valid if schemas are compatible.
+
+| Port type | Properties |
+|-----------|------------|
+| **Input** | Name, JSON Schema, required flag |
+| **Output** | Name, JSON Schema |
+
+Input ports may be marked as required. Workflow validation fails if a required input has no incoming edge.
 
 ### 6.4 Triggers
 
@@ -469,39 +454,17 @@ struct OutputPort {
 
 ### 6.5 Storage
 
-```sql
-CREATE TABLE workflows (
-    id ULID PRIMARY KEY,
-    name TEXT NOT NULL,
-    version INTEGER NOT NULL,
-    graph JSONB NOT NULL,       -- Serialized petgraph structure
-    created_at TIMESTAMPTZ,
-    updated_at TIMESTAMPTZ
-);
+**Workflows**: Metadata stored in columns (name, version, timestamps); graph structure serialized as JSONB. This allows flexible schema evolution for the graph while keeping queryable metadata in columns.
 
-CREATE TABLE triggers (
-    id ULID PRIMARY KEY,
-    workflow_id ULID REFERENCES workflows(id) ON DELETE CASCADE,
-    node_id TEXT NOT NULL,
-    trigger_type TEXT NOT NULL,
+**Triggers**: Denormalized from graph into a separate table for efficient lookup. Indexed by trigger type:
 
-    -- Indexed columns for efficient lookup:
-    cron_expression TEXT,
-    webhook_path TEXT,
-    event_type TEXT,
-    integration_account_id ULID,
+| Trigger type | Index key(s) |
+|--------------|--------------|
+| Schedule | cron expression |
+| Webhook | webhook path |
+| Event | event type + integration account |
 
-    config JSONB,
-    enabled BOOLEAN DEFAULT TRUE
-);
-
-CREATE INDEX idx_triggers_cron ON triggers(cron_expression)
-    WHERE trigger_type = 'schedule' AND enabled;
-CREATE INDEX idx_triggers_webhook ON triggers(webhook_path)
-    WHERE trigger_type = 'webhook' AND enabled;
-CREATE INDEX idx_triggers_event ON triggers(event_type, integration_account_id)
-    WHERE trigger_type = 'event' AND enabled;
-```
+Triggers cascade delete when their workflow is deleted.
 
 ### 6.6 Expression Language
 
@@ -551,6 +514,32 @@ The workflow engine (not the Coordinate AI primitive) handles these static execu
 **Distinct from Coordinate**: The Coordinate AI primitive (see [Section 4.4](#44-ai-layer-components)) handles *dynamic* orchestration where the LLM decides at runtime what to execute, how many rounds, and when to stop. Static patterns above are graph structure; Coordinate is LLM-controlled execution.
 
 > **OPEN**: Conditional branching not yet discussed.
+
+### 6.9 Workflow Memory Nodes
+
+Memory nodes enable workflows to persist state across runs, managed by AI agents.
+
+#### Load Workflow Memory
+
+| Aspect | Description |
+|--------|-------------|
+| **Purpose** | Retrieve persisted memory for use in downstream AI nodes |
+| **Configuration** | None (implicitly scoped to current workflow) |
+| **Output** | The workflow's stored memory, or empty if none exists |
+
+#### Record Workflow Memory
+
+| Aspect | Description |
+|--------|-------------|
+| **Purpose** | AI-mediated update of workflow memory based on current context |
+| **Configuration** | Update instructions (prompt guiding how AI should maintain memory) |
+| **Input** | Workflow output from upstream nodes (accepts any type) |
+| **Output** | Updated memory (also persisted to storage) |
+| **Implicit input** | Current memory loaded automatically, not user-wired |
+
+**Execution**: Wraps an LLM Call. The AI receives current memory, workflow output, and update instructions, then produces new memory content. On success, memory is persisted as a transaction.
+
+**Checkpointing**: Multiple Record nodes in a workflow enable intermediate saves. If later steps fail, subsequent runs see the last successfully recorded state.
 
 ---
 
@@ -614,36 +603,16 @@ From [PRD Section 6.1](../PRD.md#61-deployment):
 
 ### 8.3 Container Sidecar Services
 
-PostgreSQL, SpiceDB, and NATS run as container sidecars via Docker Compose:
+PostgreSQL, SpiceDB, and NATS run as container sidecars alongside the application:
 
-```yaml
-# Conceptual structure (not final)
-services:
-  app:
-    # silver-telegram application
-    depends_on:
-      - postgres
-      - spicedb
-      - nats
-  postgres:
-    image: postgres:16
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-  spicedb:
-    image: authzed/spicedb
-    command: serve
-    depends_on:
-      - postgres
-    # SpiceDB uses Postgres as its storage backend
-  nats:
-    image: nats:latest
-    command: ["--jetstream", "--store_dir", "/data"]
-    volumes:
-      - natsdata:/data
-volumes:
-  pgdata:
-  natsdata:
-```
+| Service | Role | Dependencies |
+|---------|------|--------------|
+| **Application** | silver-telegram | Postgres, SpiceDB, NATS |
+| **PostgreSQL** | Primary data store | None |
+| **SpiceDB** | Authorization | Postgres (as storage backend) |
+| **NATS** | Event bus | None (persistent storage volume) |
+
+All services use persistent volumes for data durability.
 
 ### 8.4 Open Questions
 
@@ -712,9 +681,7 @@ From [PRD Section 5.8](../PRD.md#58-observability):
 
 ---
 
-## 11. Crate Architecture
-
-### 11.1 Current Structure
+## 11. Crate Structure
 
 ```
 silver-telegram/
@@ -730,17 +697,6 @@ silver-telegram/
             ├── lib.rs     # WASM hydration entry
             └── app.rs     # Leptos App component
 ```
-
-### 11.2 Future Structure
-
-> Future crate structure deferred until workflow graph design is complete.
-
-Potential crates (pending design):
-- `workflow-engine` - Workflow execution
-- `conversation` - Conversation management
-- `ai` - AI layer (LLM Call, Coordinate, LLM backend abstraction)
-- `integrations` - Integration framework and adapters
-- `scheduler` - Trigger scheduling
 
 ---
 
@@ -790,30 +746,6 @@ Potential crates (pending design):
 - Authorization relationships stored in SpiceDB: `workflow:123#owner@user:alice`
 - Permission checks via SpiceDB API: "Can user X do action Y on resource Z?"
 - Permissions flow through relationships (user → group → resource)
-
-**Example schema** (conceptual, to be refined):
-```zed
-definition user {}
-
-definition group {
-    relation member: user
-}
-
-definition integration_account {
-    relation owner: user
-    relation user: user | group#member
-    permission use = owner + user
-}
-
-definition workflow {
-    relation owner: user
-    relation viewer: user | group#member
-    relation editor: user | group#member
-    permission view = owner + viewer + editor
-    permission edit = owner + editor
-    permission delete = owner
-}
-```
 
 **Rationale**:
 - Decouples authorization from data model
@@ -895,13 +827,13 @@ definition workflow {
 
 1. **Graph structure**: `petgraph::DiGraph<Node, EdgeWeight>` where edge weights contain port routing (source_port, destination_port)
 
-2. **Port typing**: Structural/schema-based using JSON Schema. Connections valid if schemas compatible.
+2. **Port typing**: Structural/schema-based using JSON Schema. Connections valid if schemas compatible. Input ports have a required flag; workflow validation fails if required inputs lack incoming edges.
 
-3. **Node categories**: Trigger, AI Layer, Integration, Transform, Control Flow, Output
+3. **Node categories**: Trigger, AI Layer, Integration, Transform, Control Flow, Memory, Output
 
 4. **Triggers**: Nodes in graph (source of truth) but denormalized to indexed triggers table for execution efficiency. Reconciled on workflow save.
 
-5. **Storage**: Workflow metadata in columns, graph serialized to JSONB. Triggers table with indexed columns for cron, webhook path, event type.
+5. **Storage**: Workflow metadata in columns, graph serialized to JSONB. Triggers table indexed by: cron expression (schedule), webhook path (webhook), event type + integration account (event).
 
 6. **IDs**: ULIDs throughout
 
@@ -942,44 +874,10 @@ definition workflow {
 | 8.3 | Graduation Criteria | **PARTIAL** - Working framework; needs refinement before implementation |
 | 8.4 | AI Primitive Boundaries | **N/A** - per-node configuration |
 | 8.5 | Workflow Execution Patterns | **PARTIAL** - Sequential/parallel decided; conditional TBD |
-| 8.6 | State and Memory | **OPEN** |
+| 8.6 | State and Memory | **DECIDED** - Workflow memory (AI-managed, per-workflow, opaque bytes) |
 | 8.7 | Feedback Granularity | **OPEN** |
 | 8.8 | Learning Mechanisms | **OPEN** |
 | 8.9 | Multi-User | **DECIDED** - SpiceDB for relationship-based authz (ADR-002) |
-
----
-
-## 13. Implementation Roadmap
-
-High-level phases (no time estimates). Actual order depends on design session outcomes.
-
-### Phase 1: Foundation
-
-- Core domain types in `lib/core`
-- PostgreSQL schema and SQLx migrations
-- Basic workflow engine structure
-
-### Phase 2: Conversation
-
-- Session management
-- AI layer (LLM Call, Coordinate primitives)
-- LLM backend integration
-
-### Phase 3: Workflows
-
-- Full workflow execution (after representation design)
-- Scheduling and triggers
-- State persistence
-
-### Phase 4: Integrations
-
-- Integration framework (Connector trait)
-- First integration adapter
-
-### Phase 5: Graduation
-
-- Meta-workflow for pattern recognition
-- Authoring assistance
 
 ---
 

@@ -690,22 +690,48 @@ Runtime validation at the source (node output) rather than destination (node inp
 
 ### 8.6 State and Memory
 
-**Question**: What state needs to persist, and for how long?
+**Status**: Decided (v1)
 
-Types of state:
+#### Workflow memory
 
-- **Conversation history**: For meta-workflow analysis and cross-session continuity
-- **Execution state**: Where am I in this workflow run?
-- **Accumulated data**: Results collected so far in this run
-- **Cross-run state**: Deduplication records, previously-seen items
-- **User preferences**: Explicit and inferred settings
+Workflows can persist state across runs via **workflow memory** - an opaque store that AI agents manage.
 
-Considerations:
+**Mechanism:**
 
-- Multi-step research task needs to resume after days
-- Meta-workflow needs access to conversation history
-- Storage costs scale with retention
-- What’s the retention policy?
+- **Load Workflow Memory** node: Retrieves stored memory, feeds into downstream AI node context
+- **Record Workflow Memory** node: AI rewrites memory based on current state and update instructions
+
+**Design decisions:**
+
+| Aspect | Decision |
+|--------|----------|
+| Scope | Per-workflow ID |
+| Format | Opaque bytes; AI determines and maintains structure |
+| Update semantics | Full rewrite (AI curates what to keep) |
+| Size limit | Platform-enforced; small enough to always fit in LLM context |
+| Atomicity | Each Record node is a transaction (completes → persisted) |
+| Checkpointing | Multiple Record nodes in a workflow enable intermediate saves |
+
+**Record Workflow Memory node:**
+
+| | Name | Type | Description |
+|--|------|------|-------------|
+| config | `update_instructions` | string | Prompt guiding how AI should maintain memory |
+| input | `workflow_output` | any | Output from upstream nodes to inform update |
+| output | `memory` | bytes | Updated memory (also persisted) |
+
+Note: Current memory is loaded implicitly by the node, not a user-wired input.
+
+**Example uses:**
+
+- **Deduplication**: Memory stores identifiers of previously processed items; AI checks incoming items against memory
+- **Notification tracking**: Memory records what user has been notified about to avoid repeats
+- **Accumulated context**: Memory builds up relevant facts across runs for richer AI decisions
+
+#### Deferred
+
+- File-like tooling for large memories (if "fits in context" limit proves insufficient)
+- Memory versioning / rollback
 
 ### 8.7 Feedback Granularity
 
