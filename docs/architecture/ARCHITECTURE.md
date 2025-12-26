@@ -160,7 +160,7 @@ flowchart TB
 | **Scheduler** | Rust | Manages scheduled triggers, handles missed executions |
 | **Database** | PostgreSQL (SQLx) | Persistent storage for workflows, state, history, credentials |
 | **SpiceDB** | SpiceDB (Zanzibar) | Relationship-based authorization, permission checks |
-| **NATS** | NATS + JetStream | Event bus, durable messaging, pub/sub |
+| **NATS** | NATS + JetStream | Event bus (event sourcing), Object Store (node outputs), job queues |
 
 ---
 
@@ -480,9 +480,8 @@ Triggers cascade delete when their workflow is deleted.
 
 ### 6.7 Open Questions
 
-- **Execution model**: How engine traverses graph, handles parallel paths, manages state
+- ~~**Execution model**~~: See [ADR-006](#adr-006-workflow-execution-model)
 - **Versioning**: How workflow changes are tracked, rollback, draft vs published
-- **Workflow run state**: State management during execution
 
 ### 6.8 Workflow Execution Patterns
 
@@ -855,13 +854,68 @@ silver-telegram/
 
 ---
 
+#### ADR-006: Workflow Execution Model
+
+**Status**: Accepted
+
+**Context**: Need to define how workflows execute: state tracking, parallel coordination, failure handling, and integration with NATS.
+
+**Decisions**:
+
+1. **Persistence granularity**: Per-node completion. After each node completes, persist its output. On crash recovery, resume from last completed node.
+
+2. **Parallel synchronization**: Implicit barrier. Nodes with multiple incoming edges wait for ALL predecessors to complete before executing.
+
+3. **Failure handling**: Partial completion. Failed nodes block downstream; independent branches continue. Run ends showing what succeeded/failed.
+
+4. **Execution algorithm** (remaining work graph):
+   - Start with full workflow graph
+   - Remove nodes that have completed
+   - Failed nodes get a self-edge (never become ready, block downstream)
+   - Nodes with 0 incoming edges are ready for execution
+   - When no nodes have 0 incoming edges AND no nodes executing → run complete
+
+   (Pattern: similar to DependentValueGraph in systeminit/si)
+
+5. **Event sourcing**: Full event sourcing via NATS. All state changes (run started, node started, node completed, run finished) published to NATS. State reconstructed from event stream on recovery.
+
+6. **Executor model**: Orchestrator + worker pool.
+   - Orchestrator: One per run, determines ready nodes, publishes work items
+   - Workers: Execute nodes, publish completion/failure events
+   - Clean separation: orchestrator handles graph logic, workers handle execution
+
+7. **Orchestrator assignment**: Job queue semantics. Trigger fires → job queued → available orchestrator dequeues (implicit claim). JetStream ack handles crash recovery: unacked job redelivers, new orchestrator reconstructs from event stream.
+
+8. **Worker routing**: Deferred. All workers have same capabilities for now. Simple NATS work queue. Capability-based routing added when needed.
+
+9. **Retry policy**: No automatic retries. Failed nodes marked failed immediately. User can manually retry. Simplicity first; retries can be layered on later.
+
+10. **Node output storage**: NATS Object Store. Worker writes output to Object Store, publishes completion event with key/reference. Keeps PostgreSQL for relational data only.
+
+11. **Serialization versioning**: All serialized data includes version header/envelope (events, workflow definitions, node outputs). Enables schema evolution, in-place upgrades, and rolling deployments.
+
+**Rationale**:
+- Simplicity as primary goal; robustness flows from simplicity
+- Event sourcing provides durability and auditability
+- Orchestrator/worker separation enables future scaling
+- NATS Object Store avoids bloating PostgreSQL with blob data
+- Versioned envelopes enable zero-downtime deployments
+
+**Consequences**:
+- Event stream becomes source of truth for run state
+- Must design event schemas carefully (versioned from start)
+- NATS Object Store adds storage management consideration
+- Capability routing deferred; revisit when worker heterogeneity needed
+
+---
+
 ### 12.2 Pending Decisions
 
 | Decision | Status | Notes |
 |----------|--------|-------|
 | General API design | **DEFERRED** | Not needed yet; Leptos server functions serve frontend only |
 | Expression language | **DEFERRED** | Requirements established; no viable Rust impl yet |
-| Workflow execution model | **PARTIAL** | Parallel/FanOut decided; conditional, traversal, state TBD |
+| Workflow execution model | **DECIDED** | See ADR-006 |
 | Workflow versioning | **OPEN** | Change tracking, rollback, draft vs published |
 | Context persistence strategy | **DECIDED** | See PRD 8.1 and Section 4.2 |
 
@@ -873,7 +927,7 @@ silver-telegram/
 | 8.2 | Workflow Representation | **DECIDED** - petgraph + JSONB storage (ADR-005) |
 | 8.3 | Graduation Criteria | **PARTIAL** - Working framework; needs refinement before implementation |
 | 8.4 | AI Primitive Boundaries | **N/A** - per-node configuration |
-| 8.5 | Workflow Execution Patterns | **PARTIAL** - Sequential/parallel decided; conditional TBD |
+| 8.5 | Workflow Execution Patterns | **DECIDED** - ADR-006; conditional branching still TBD |
 | 8.6 | State and Memory | **DECIDED** - Workflow memory (AI-managed, per-workflow, opaque bytes) |
 | 8.7 | Feedback Granularity | **OPEN** |
 | 8.8 | Learning Mechanisms | **OPEN** |
