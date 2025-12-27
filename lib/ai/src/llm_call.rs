@@ -5,10 +5,10 @@
 //! Summarize, etc.) are built on this primitive.
 
 use crate::backend::{LlmRequest, LlmResponse, TokenUsage};
+use crate::error::LlmError;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
-use silver_telegram_core::AiError;
 use ulid::Ulid;
 
 /// Unique identifier for an LLM invocation.
@@ -232,7 +232,7 @@ impl LlmInvocationRecord {
 
     /// Creates a failed invocation record.
     #[must_use]
-    pub fn failure(request: LlmRequest, error: &AiError) -> Self {
+    pub fn failure(request: LlmRequest, error: &LlmError) -> Self {
         Self {
             id: LlmInvocationId::new(),
             request,

@@ -10,6 +10,7 @@
 
 pub mod definition;
 pub mod edge;
+pub mod error;
 pub mod execution;
 pub mod graph;
 pub mod node;
@@ -18,6 +19,7 @@ pub mod trigger;
 
 pub use definition::{Workflow, WorkflowMetadata};
 pub use edge::Edge;
+pub use error::{ExecutionError, GraphError, WorkflowError};
 pub use execution::{ExecutionState, NodeExecutionState, WorkflowRun};
 pub use graph::WorkflowGraph;
 pub use node::{Node, NodeCategory, NodeConfig, NodeId};

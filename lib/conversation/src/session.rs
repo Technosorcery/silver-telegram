@@ -3,10 +3,11 @@
 //! Sessions track active conversations, maintaining message history
 //! and extracted context.
 
+use crate::error::SessionError;
 use crate::message::Message;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use silver_telegram_core::{ConversationError, ConversationSessionId, UserId};
+use silver_telegram_core::{ConversationSessionId, UserId};
 
 /// The state of a conversation session.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -152,38 +153,38 @@ pub trait SessionManager: Send + Sync {
     fn create_session(
         &self,
         user_id: UserId,
-    ) -> impl std::future::Future<Output = Result<Session, ConversationError>> + Send;
+    ) -> impl std::future::Future<Output = Result<Session, SessionError>> + Send;
 
     /// Gets a session by ID.
     fn get_session(
         &self,
         id: ConversationSessionId,
-    ) -> impl std::future::Future<Output = Result<Session, ConversationError>> + Send;
+    ) -> impl std::future::Future<Output = Result<Session, SessionError>> + Send;
 
     /// Updates a session.
     fn update_session(
         &self,
         session: Session,
-    ) -> impl std::future::Future<Output = Result<(), ConversationError>> + Send;
+    ) -> impl std::future::Future<Output = Result<(), SessionError>> + Send;
 
     /// Lists sessions for a user.
     fn list_sessions(
         &self,
         user_id: UserId,
         include_ended: bool,
-    ) -> impl std::future::Future<Output = Result<Vec<Session>, ConversationError>> + Send;
+    ) -> impl std::future::Future<Output = Result<Vec<Session>, SessionError>> + Send;
 
     /// Deletes a session.
     fn delete_session(
         &self,
         id: ConversationSessionId,
-    ) -> impl std::future::Future<Output = Result<(), ConversationError>> + Send;
+    ) -> impl std::future::Future<Output = Result<(), SessionError>> + Send;
 
     /// Gets expired sessions (for cleanup).
     fn get_expired_sessions(
         &self,
         older_than: DateTime<Utc>,
-    ) -> impl std::future::Future<Output = Result<Vec<ConversationSessionId>, ConversationError>> + Send;
+    ) -> impl std::future::Future<Output = Result<Vec<ConversationSessionId>, SessionError>> + Send;
 }
 
 #[cfg(test)]

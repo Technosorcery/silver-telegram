@@ -8,12 +8,12 @@
 //! schema evolution.
 
 use crate::edge::Edge;
+use crate::error::GraphError;
 use crate::node::{Node, NodeId};
 use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::visit::EdgeRef;
 use petgraph::Direction;
 use serde::{Deserialize, Serialize};
-use silver_telegram_core::WorkflowError;
 use std::collections::HashMap;
 
 /// A workflow graph using petgraph's directed graph.
@@ -82,53 +82,42 @@ impl WorkflowGraph {
         source_id: NodeId,
         target_id: NodeId,
         edge: Edge,
-    ) -> Result<(), WorkflowError> {
-        let source_index = self.node_index_map.get(&source_id).ok_or_else(|| {
-            WorkflowError::NodeNotFound {
-                workflow_id: String::new(),
-                node_id: source_id.to_string(),
-            }
-        })?;
+    ) -> Result<(), GraphError> {
+        let source_index = self
+            .node_index_map
+            .get(&source_id)
+            .ok_or(GraphError::NodeNotFound { node_id: source_id })?;
 
-        let target_index = self.node_index_map.get(&target_id).ok_or_else(|| {
-            WorkflowError::NodeNotFound {
-                workflow_id: String::new(),
-                node_id: target_id.to_string(),
-            }
-        })?;
+        let target_index = self
+            .node_index_map
+            .get(&target_id)
+            .ok_or(GraphError::NodeNotFound { node_id: target_id })?;
 
         // Validate ports exist and schemas are compatible
         let source_node = self.graph.node_weight(*source_index).unwrap();
         let target_node = self.graph.node_weight(*target_index).unwrap();
 
-        let source_port = source_node
-            .output_port(&edge.source_port)
-            .ok_or_else(|| WorkflowError::InvalidPortConnection {
-                source_node: source_id.to_string(),
-                source_port: edge.source_port.clone(),
-                target_node: target_id.to_string(),
-                target_port: edge.target_port.clone(),
-                reason: format!("source port '{}' not found", edge.source_port),
-            })?;
+        let source_port = source_node.output_port(&edge.source_port).ok_or_else(|| {
+            GraphError::SourcePortNotFound {
+                node_id: source_id,
+                port_name: edge.source_port.clone(),
+            }
+        })?;
 
-        let target_port = target_node
-            .input_port(&edge.target_port)
-            .ok_or_else(|| WorkflowError::InvalidPortConnection {
-                source_node: source_id.to_string(),
-                source_port: edge.source_port.clone(),
-                target_node: target_id.to_string(),
-                target_port: edge.target_port.clone(),
-                reason: format!("target port '{}' not found", edge.target_port),
-            })?;
+        let target_port = target_node.input_port(&edge.target_port).ok_or_else(|| {
+            GraphError::TargetPortNotFound {
+                node_id: target_id,
+                port_name: edge.target_port.clone(),
+            }
+        })?;
 
         // Check schema compatibility
         if !source_port.schema.is_compatible_with(&target_port.schema) {
-            return Err(WorkflowError::InvalidPortConnection {
-                source_node: source_id.to_string(),
+            return Err(GraphError::IncompatibleSchemas {
+                source_node: source_id,
                 source_port: edge.source_port.clone(),
-                target_node: target_id.to_string(),
+                target_node: target_id,
                 target_port: edge.target_port.clone(),
-                reason: "incompatible schemas".to_string(),
             });
         }
 
@@ -210,7 +199,7 @@ impl WorkflowGraph {
     /// # Errors
     ///
     /// Returns an error describing the validation failure.
-    pub fn validate(&self) -> Result<(), WorkflowError> {
+    pub fn validate(&self) -> Result<(), GraphError> {
         // Check required inputs
         for node in self.nodes() {
             let incoming_ports: Vec<_> = self
@@ -221,8 +210,8 @@ impl WorkflowGraph {
 
             for input in &node.inputs {
                 if input.required && !incoming_ports.contains(&input.name.as_str()) {
-                    return Err(WorkflowError::RequiredInputMissing {
-                        node_id: node.id.to_string(),
+                    return Err(GraphError::RequiredInputMissing {
+                        node_id: node.id,
                         port_name: input.name.clone(),
                     });
                 }
@@ -231,9 +220,7 @@ impl WorkflowGraph {
 
         // Check for cycles using DFS
         if petgraph::algo::is_cyclic_directed(&self.graph) {
-            return Err(WorkflowError::InvalidDefinition {
-                reason: "workflow graph contains cycles".to_string(),
-            });
+            return Err(GraphError::CycleDetected);
         }
 
         Ok(())
@@ -452,7 +439,7 @@ mod tests {
         let result = graph.validate();
         assert!(result.is_err());
         match result.unwrap_err() {
-            WorkflowError::RequiredInputMissing { port_name, .. } => {
+            GraphError::RequiredInputMissing { port_name, .. } => {
                 assert_eq!(port_name, "content");
             }
             _ => panic!("unexpected error type"),

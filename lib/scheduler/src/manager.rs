@@ -2,9 +2,10 @@
 //!
 //! Manages the denormalized trigger table for efficient lookup.
 
+use crate::error::TriggerError;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use silver_telegram_core::{IntegrationAccountId, SchedulerError, TriggerId, WorkflowId};
+use silver_telegram_core::{IntegrationAccountId, TriggerId, WorkflowId};
 use silver_telegram_workflow::trigger::{Trigger, TriggerConfig, TriggerType};
 use silver_telegram_workflow::NodeId;
 
@@ -100,55 +101,55 @@ pub trait TriggerManager: Send + Sync {
     fn register(
         &self,
         trigger: Trigger,
-    ) -> impl std::future::Future<Output = Result<TriggerId, SchedulerError>> + Send;
+    ) -> impl std::future::Future<Output = Result<TriggerId, TriggerError>> + Send;
 
     /// Gets a trigger by ID.
     fn get(
         &self,
         id: TriggerId,
-    ) -> impl std::future::Future<Output = Result<Trigger, SchedulerError>> + Send;
+    ) -> impl std::future::Future<Output = Result<Trigger, TriggerError>> + Send;
 
     /// Updates a trigger.
     fn update(
         &self,
         trigger: Trigger,
-    ) -> impl std::future::Future<Output = Result<(), SchedulerError>> + Send;
+    ) -> impl std::future::Future<Output = Result<(), TriggerError>> + Send;
 
     /// Deletes a trigger.
     fn delete(
         &self,
         id: TriggerId,
-    ) -> impl std::future::Future<Output = Result<(), SchedulerError>> + Send;
+    ) -> impl std::future::Future<Output = Result<(), TriggerError>> + Send;
 
     /// Deletes all triggers for a workflow.
     fn delete_for_workflow(
         &self,
         workflow_id: WorkflowId,
-    ) -> impl std::future::Future<Output = Result<u32, SchedulerError>> + Send;
+    ) -> impl std::future::Future<Output = Result<u32, TriggerError>> + Send;
 
     /// Lists triggers for a workflow.
     fn list_for_workflow(
         &self,
         workflow_id: WorkflowId,
-    ) -> impl std::future::Future<Output = Result<Vec<Trigger>, SchedulerError>> + Send;
+    ) -> impl std::future::Future<Output = Result<Vec<Trigger>, TriggerError>> + Send;
 
     /// Finds triggers by webhook path.
     fn find_by_webhook_path(
         &self,
         path: &str,
-    ) -> impl std::future::Future<Output = Result<Vec<TriggerRecord>, SchedulerError>> + Send;
+    ) -> impl std::future::Future<Output = Result<Vec<TriggerRecord>, TriggerError>> + Send;
 
     /// Finds triggers by integration event.
     fn find_by_integration_event(
         &self,
         integration_id: IntegrationAccountId,
         event_type: &str,
-    ) -> impl std::future::Future<Output = Result<Vec<TriggerRecord>, SchedulerError>> + Send;
+    ) -> impl std::future::Future<Output = Result<Vec<TriggerRecord>, TriggerError>> + Send;
 
     /// Gets all schedule triggers that need evaluation.
     fn get_schedule_triggers(
         &self,
-    ) -> impl std::future::Future<Output = Result<Vec<TriggerRecord>, SchedulerError>> + Send;
+    ) -> impl std::future::Future<Output = Result<Vec<TriggerRecord>, TriggerError>> + Send;
 
     /// Reconciles triggers for a workflow (syncs from graph).
     ///
@@ -158,7 +159,7 @@ pub trait TriggerManager: Send + Sync {
         &self,
         workflow_id: WorkflowId,
         triggers: Vec<Trigger>,
-    ) -> impl std::future::Future<Output = Result<ReconcileResult, SchedulerError>> + Send;
+    ) -> impl std::future::Future<Output = Result<ReconcileResult, TriggerError>> + Send;
 }
 
 /// Result of trigger reconciliation.

@@ -156,7 +156,7 @@ impl Workflow {
     /// # Errors
     ///
     /// Returns an error if the workflow graph is invalid.
-    pub fn validate(&self) -> Result<(), silver_telegram_core::WorkflowError> {
+    pub fn validate(&self) -> Result<(), crate::error::GraphError> {
         self.graph.validate()
     }
 

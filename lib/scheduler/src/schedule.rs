@@ -1,8 +1,9 @@
 //! Cron-based scheduling with missed execution handling.
 
+use crate::error::ScheduleError;
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
-use silver_telegram_core::{SchedulerError, TriggerId, WorkflowId};
+use silver_telegram_core::{TriggerId, WorkflowId};
 use silver_telegram_workflow::trigger::MissedExecutionBehavior;
 use ulid::Ulid;
 
@@ -37,11 +38,11 @@ impl CronSchedule {
     /// # Errors
     ///
     /// Returns an error if the expression is invalid.
-    pub fn validate(&self) -> Result<(), SchedulerError> {
+    pub fn validate(&self) -> Result<(), ScheduleError> {
         // Basic validation - in production, use a proper cron parser
         let parts: Vec<&str> = self.expression.split_whitespace().collect();
         if parts.len() != 5 {
-            return Err(SchedulerError::InvalidCronExpression {
+            return Err(ScheduleError::InvalidCronExpression {
                 expression: self.expression.clone(),
                 reason: format!("expected 5 parts, got {}", parts.len()),
             });
@@ -184,7 +185,7 @@ pub trait ScheduleEvaluator: Send + Sync {
     /// Gets executions that are ready to run.
     fn get_ready_executions(
         &self,
-    ) -> impl std::future::Future<Output = Result<Vec<ScheduledExecution>, SchedulerError>> + Send;
+    ) -> impl std::future::Future<Output = Result<Vec<ScheduledExecution>, ScheduleError>> + Send;
 
     /// Creates the next scheduled execution for a trigger.
     fn schedule_next(
@@ -192,20 +193,20 @@ pub trait ScheduleEvaluator: Send + Sync {
         trigger_id: TriggerId,
         workflow_id: WorkflowId,
         schedule: &CronSchedule,
-    ) -> impl std::future::Future<Output = Result<ScheduledExecution, SchedulerError>> + Send;
+    ) -> impl std::future::Future<Output = Result<ScheduledExecution, ScheduleError>> + Send;
 
     /// Handles missed executions based on policy.
     fn handle_missed_executions(
         &self,
         trigger_id: TriggerId,
         behavior: MissedExecutionBehavior,
-    ) -> impl std::future::Future<Output = Result<Vec<ScheduledExecution>, SchedulerError>> + Send;
+    ) -> impl std::future::Future<Output = Result<Vec<ScheduledExecution>, ScheduleError>> + Send;
 
     /// Updates execution status.
     fn update_execution(
         &self,
         execution: ScheduledExecution,
-    ) -> impl std::future::Future<Output = Result<(), SchedulerError>> + Send;
+    ) -> impl std::future::Future<Output = Result<(), ScheduleError>> + Send;
 }
 
 #[cfg(test)]

@@ -6,10 +6,11 @@
 //! - Corrections/feedback: Permanent
 //! - Workflow execution history: User-configurable (default 90 days)
 
+use crate::error::ContextError;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
-use silver_telegram_core::{ConversationError, ConversationSessionId, UserId};
+use silver_telegram_core::{ConversationSessionId, UserId};
 use ulid::Ulid;
 
 /// Unique identifier for a context fact.
@@ -195,31 +196,31 @@ pub trait ContextStore: Send + Sync {
     fn store_fact(
         &self,
         fact: ContextFact,
-    ) -> impl std::future::Future<Output = Result<FactId, ConversationError>> + Send;
+    ) -> impl std::future::Future<Output = Result<FactId, ContextError>> + Send;
 
     /// Gets a fact by ID.
     fn get_fact(
         &self,
         id: FactId,
-    ) -> impl std::future::Future<Output = Result<ContextFact, ConversationError>> + Send;
+    ) -> impl std::future::Future<Output = Result<ContextFact, ContextError>> + Send;
 
     /// Queries facts.
     fn query_facts(
         &self,
         query: FactQuery,
-    ) -> impl std::future::Future<Output = Result<Vec<ContextFact>, ConversationError>> + Send;
+    ) -> impl std::future::Future<Output = Result<Vec<ContextFact>, ContextError>> + Send;
 
     /// Deletes a fact.
     fn delete_fact(
         &self,
         id: FactId,
-    ) -> impl std::future::Future<Output = Result<(), ConversationError>> + Send;
+    ) -> impl std::future::Future<Output = Result<(), ContextError>> + Send;
 
     /// Gets all core facts for a user (for context injection).
     fn get_core_facts(
         &self,
         user_id: UserId,
-    ) -> impl std::future::Future<Output = Result<Vec<ContextFact>, ConversationError>> + Send;
+    ) -> impl std::future::Future<Output = Result<Vec<ContextFact>, ContextError>> + Send;
 
     /// Searches facts by semantic similarity (for retrieval).
     fn search_facts(
@@ -227,7 +228,7 @@ pub trait ContextStore: Send + Sync {
         user_id: UserId,
         query: &str,
         limit: usize,
-    ) -> impl std::future::Future<Output = Result<Vec<ContextFact>, ConversationError>> + Send;
+    ) -> impl std::future::Future<Output = Result<Vec<ContextFact>, ContextError>> + Send;
 }
 
 #[cfg(test)]

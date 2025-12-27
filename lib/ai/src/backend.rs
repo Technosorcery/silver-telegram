@@ -2,9 +2,9 @@
 //!
 //! Provides a unified interface for different LLM providers (local Ollama, cloud APIs).
 
+use crate::error::LlmError;
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
-use silver_telegram_core::AiError;
 use std::collections::HashMap;
 
 /// Available LLM providers.
@@ -212,7 +212,7 @@ pub trait LlmBackend: Send + Sync {
     fn generate(
         &self,
         request: &LlmRequest,
-    ) -> impl std::future::Future<Output = Result<LlmResponse, AiError>> + Send;
+    ) -> impl std::future::Future<Output = Result<LlmResponse, LlmError>> + Send;
 
     /// Returns the provider type.
     fn provider(&self) -> LlmProvider;

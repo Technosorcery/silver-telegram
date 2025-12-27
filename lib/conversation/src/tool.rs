@@ -5,9 +5,9 @@
 //! - Workflow invocation
 //! - Search and retrieval
 
+use crate::error::ToolError;
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
-use silver_telegram_core::ConversationError;
 use std::collections::HashMap;
 
 /// Definition of a tool available during conversation.
@@ -138,7 +138,7 @@ pub trait Tool: Send + Sync {
     fn execute(
         &self,
         input: JsonValue,
-    ) -> impl std::future::Future<Output = Result<ToolResult, ConversationError>> + Send;
+    ) -> impl std::future::Future<Output = Result<ToolResult, ToolError>> + Send;
 }
 
 /// Registry of available tools.

@@ -7,11 +7,13 @@
 //! - **Tool Registry**: Available tools during conversation
 
 pub mod context;
+pub mod error;
 pub mod message;
 pub mod session;
 pub mod tool;
 
 pub use context::{ContextFact, ContextStore, FactSource};
+pub use error::{ContextError, ConversationError, SessionError, ToolError};
 pub use message::{Message, MessageRole};
 pub use session::{Session, SessionManager, SessionState};
 pub use tool::{Tool, ToolDefinition, ToolRegistry, ToolResult};

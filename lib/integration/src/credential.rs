@@ -3,9 +3,10 @@
 //! All integration credentials are encrypted at rest.
 //! No plaintext credentials are stored in configuration or logs.
 
+use crate::error::CredentialError;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use silver_telegram_core::{CredentialError, CredentialId, IntegrationAccountId, UserId};
+use silver_telegram_core::{CredentialId, IntegrationAccountId, UserId};
 
 /// The type of credential.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

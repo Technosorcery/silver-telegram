@@ -174,25 +174,25 @@ pub trait FeedbackStore: Send + Sync {
     fn store(
         &self,
         feedback: Feedback,
-    ) -> impl std::future::Future<Output = Result<(), silver_telegram_core::AiError>> + Send;
+    ) -> impl std::future::Future<Output = Result<(), crate::error::FeedbackError>> + Send;
 
     /// Retrieves feedback for an LLM invocation.
     fn get_for_invocation(
         &self,
         invocation_id: LlmInvocationId,
-    ) -> impl std::future::Future<Output = Result<Vec<Feedback>, silver_telegram_core::AiError>> + Send;
+    ) -> impl std::future::Future<Output = Result<Vec<Feedback>, crate::error::FeedbackError>> + Send;
 
     /// Retrieves feedback for a workflow run.
     fn get_for_workflow_run(
         &self,
         run_id: WorkflowRunId,
-    ) -> impl std::future::Future<Output = Result<Vec<Feedback>, silver_telegram_core::AiError>> + Send;
+    ) -> impl std::future::Future<Output = Result<Vec<Feedback>, crate::error::FeedbackError>> + Send;
 
     /// Gets aggregate statistics for a user's feedback.
     fn get_user_stats(
         &self,
         user_id: UserId,
-    ) -> impl std::future::Future<Output = Result<FeedbackStats, silver_telegram_core::AiError>> + Send;
+    ) -> impl std::future::Future<Output = Result<FeedbackStats, crate::error::FeedbackError>> + Send;
 }
 
 /// Aggregate statistics about feedback.

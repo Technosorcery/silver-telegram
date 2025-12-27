@@ -3,9 +3,9 @@
 //! All integrations implement the Connector trait, providing a uniform
 //! interface for external service operations.
 
+use crate::error::ConnectorError;
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
-use silver_telegram_core::IntegrationError;
 
 /// Information about a connector.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -159,12 +159,12 @@ pub trait Connector: Send + Sync {
     fn execute(
         &self,
         operation: Operation,
-    ) -> impl std::future::Future<Output = Result<OperationResult, IntegrationError>> + Send;
+    ) -> impl std::future::Future<Output = Result<OperationResult, ConnectorError>> + Send;
 
     /// Checks if the connection is healthy.
     fn health_check(
         &self,
-    ) -> impl std::future::Future<Output = Result<bool, IntegrationError>> + Send;
+    ) -> impl std::future::Future<Output = Result<bool, ConnectorError>> + Send;
 
     /// Returns the list of supported capabilities.
     fn capabilities(&self) -> Vec<ConnectorCapability> {
