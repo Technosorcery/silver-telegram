@@ -302,6 +302,41 @@ impl NodeConfig {
     }
 }
 
+/// Input and output ports for a node.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct NodePorts {
+    /// Input ports.
+    pub inputs: Vec<InputPort>,
+    /// Output ports.
+    pub outputs: Vec<OutputPort>,
+}
+
+impl NodePorts {
+    /// Creates a new `NodePorts` with the given inputs and outputs.
+    #[must_use]
+    pub fn new(inputs: Vec<InputPort>, outputs: Vec<OutputPort>) -> Self {
+        Self { inputs, outputs }
+    }
+
+    /// Creates ports with no inputs.
+    #[must_use]
+    pub fn outputs_only(outputs: Vec<OutputPort>) -> Self {
+        Self {
+            inputs: vec![],
+            outputs,
+        }
+    }
+
+    /// Creates ports with no outputs.
+    #[must_use]
+    pub fn inputs_only(inputs: Vec<InputPort>) -> Self {
+        Self {
+            inputs,
+            outputs: vec![],
+        }
+    }
+}
+
 /// A workflow node.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Node {
@@ -321,26 +356,26 @@ impl Node {
     /// Creates a new node with the given configuration.
     #[must_use]
     pub fn new(name: impl Into<String>, config: NodeConfig) -> Self {
-        let (inputs, outputs) = Self::default_ports(&config);
+        let ports = Self::default_ports(&config);
         Self {
             id: NodeId::new(),
             name: name.into(),
             config,
-            inputs,
-            outputs,
+            inputs: ports.inputs,
+            outputs: ports.outputs,
         }
     }
 
     /// Creates a new node with a specific ID.
     #[must_use]
     pub fn with_id(id: NodeId, name: impl Into<String>, config: NodeConfig) -> Self {
-        let (inputs, outputs) = Self::default_ports(&config);
+        let ports = Self::default_ports(&config);
         Self {
             id,
             name: name.into(),
             config,
-            inputs,
-            outputs,
+            inputs: ports.inputs,
+            outputs: ports.outputs,
         }
     }
 
@@ -363,25 +398,25 @@ impl Node {
     }
 
     /// Generates default ports based on node configuration.
-    fn default_ports(config: &NodeConfig) -> (Vec<InputPort>, Vec<OutputPort>) {
+    fn default_ports(config: &NodeConfig) -> NodePorts {
         match config {
             NodeConfig::Trigger(_) => {
                 // Triggers have no inputs, one output
-                (vec![], vec![OutputPort::new("output", PortSchema::any())])
+                NodePorts::outputs_only(vec![OutputPort::new("output", PortSchema::any())])
             }
             NodeConfig::AiLayer(ai_config) => match ai_config {
-                AiLayerNodeConfig::LlmCall { output_schema, .. } => (
+                AiLayerNodeConfig::LlmCall { output_schema, .. } => NodePorts::new(
                     vec![InputPort::required("input", PortSchema::any())],
                     vec![OutputPort::new(
                         "output",
                         output_schema.clone().unwrap_or_else(PortSchema::any),
                     )],
                 ),
-                AiLayerNodeConfig::Coordinate { .. } => (
+                AiLayerNodeConfig::Coordinate { .. } => NodePorts::new(
                     vec![InputPort::required("context", PortSchema::any())],
                     vec![OutputPort::new("result", PortSchema::any())],
                 ),
-                AiLayerNodeConfig::Classify { .. } => (
+                AiLayerNodeConfig::Classify { .. } => NodePorts::new(
                     vec![InputPort::required("content", PortSchema::any())],
                     vec![OutputPort::new(
                         "classification",
@@ -394,39 +429,39 @@ impl Node {
                         })),
                     )],
                 ),
-                AiLayerNodeConfig::Extract { output_schema } => (
+                AiLayerNodeConfig::Extract { output_schema } => NodePorts::new(
                     vec![InputPort::required("content", PortSchema::any())],
                     vec![OutputPort::new("extracted", output_schema.clone())],
                 ),
-                AiLayerNodeConfig::Generate { .. } => (
+                AiLayerNodeConfig::Generate { .. } => NodePorts::new(
                     vec![InputPort::required("context", PortSchema::any())],
                     vec![OutputPort::new("generated", PortSchema::string())],
                 ),
-                AiLayerNodeConfig::Summarize { .. } => (
+                AiLayerNodeConfig::Summarize { .. } => NodePorts::new(
                     vec![InputPort::required("content", PortSchema::any())],
                     vec![OutputPort::new("summary", PortSchema::string())],
                 ),
-                AiLayerNodeConfig::Score { .. } => (
+                AiLayerNodeConfig::Score { .. } => NodePorts::new(
                     vec![InputPort::required("content", PortSchema::any())],
                     vec![OutputPort::new("score", PortSchema::number())],
                 ),
-                AiLayerNodeConfig::Deduplicate { .. } => (
+                AiLayerNodeConfig::Deduplicate { .. } => NodePorts::new(
                     vec![
                         InputPort::required("item", PortSchema::any()),
                         InputPort::required("recent_items", PortSchema::array()),
                     ],
                     vec![OutputPort::new("is_duplicate", PortSchema::boolean())],
                 ),
-                AiLayerNodeConfig::Decide { .. } => (
+                AiLayerNodeConfig::Decide { .. } => NodePorts::new(
                     vec![InputPort::required("context", PortSchema::any())],
                     vec![OutputPort::new("decision", PortSchema::string())],
                 ),
             },
-            NodeConfig::Integration(_) => (
+            NodeConfig::Integration(_) => NodePorts::new(
                 vec![InputPort::optional("input", PortSchema::any())],
                 vec![OutputPort::new("output", PortSchema::any())],
             ),
-            NodeConfig::Transform(_) => (
+            NodeConfig::Transform(_) => NodePorts::new(
                 vec![InputPort::required("input", PortSchema::any())],
                 vec![OutputPort::new("output", PortSchema::any())],
             ),
@@ -436,37 +471,36 @@ impl Node {
                         .iter()
                         .map(|c| OutputPort::new(&c.port, PortSchema::any()))
                         .collect();
-                    (
+                    NodePorts::new(
                         vec![InputPort::required("input", PortSchema::any())],
                         outputs,
                     )
                 }
-                ControlFlowNodeConfig::FanOut => (
+                ControlFlowNodeConfig::FanOut => NodePorts::new(
                     vec![InputPort::required("items", PortSchema::array())],
                     vec![OutputPort::new("item", PortSchema::any())],
                 ),
-                ControlFlowNodeConfig::FanIn { .. } => (
+                ControlFlowNodeConfig::FanIn { .. } => NodePorts::new(
                     vec![InputPort::required("item", PortSchema::any())],
                     vec![OutputPort::new("items", PortSchema::array())],
                 ),
-                ControlFlowNodeConfig::Parallel | ControlFlowNodeConfig::Join => (
+                ControlFlowNodeConfig::Parallel | ControlFlowNodeConfig::Join => NodePorts::new(
                     vec![InputPort::required("input", PortSchema::any())],
                     vec![OutputPort::new("output", PortSchema::any())],
                 ),
             },
             NodeConfig::Memory(mem_config) => match mem_config {
                 MemoryNodeConfig::LoadMemory => {
-                    (vec![], vec![OutputPort::new("memory", PortSchema::any())])
+                    NodePorts::outputs_only(vec![OutputPort::new("memory", PortSchema::any())])
                 }
-                MemoryNodeConfig::RecordMemory { .. } => (
+                MemoryNodeConfig::RecordMemory { .. } => NodePorts::new(
                     vec![InputPort::required("workflow_output", PortSchema::any())],
                     vec![OutputPort::new("memory", PortSchema::any())],
                 ),
             },
-            NodeConfig::Output(_) => (
-                vec![InputPort::required("input", PortSchema::any())],
-                vec![],
-            ),
+            NodeConfig::Output(_) => {
+                NodePorts::inputs_only(vec![InputPort::required("input", PortSchema::any())])
+            }
         }
     }
 }

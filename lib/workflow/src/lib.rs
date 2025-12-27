@@ -22,6 +22,6 @@ pub use edge::Edge;
 pub use error::{ExecutionError, GraphError, WorkflowError};
 pub use execution::{ExecutionState, NodeExecutionState, WorkflowRun};
 pub use graph::WorkflowGraph;
-pub use node::{Node, NodeCategory, NodeConfig, NodeId};
+pub use node::{Node, NodeCategory, NodeConfig, NodeId, NodePorts};
 pub use port::{InputPort, OutputPort, PortSchema};
 pub use trigger::{Trigger, TriggerConfig, TriggerType};
