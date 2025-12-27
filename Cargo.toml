@@ -12,9 +12,17 @@ repository = "https://github.com/Technosorcery/silver-telegram"
 [workspace.dependencies]
 # Workspace crates
 silver-telegram-core = { path = "lib/core" }
+silver-telegram-workflow = { path = "lib/workflow" }
+silver-telegram-ai = { path = "lib/ai" }
+silver-telegram-integration = { path = "lib/integration" }
+silver-telegram-conversation = { path = "lib/conversation" }
+silver-telegram-scheduler = { path = "lib/scheduler" }
 
 # Error handling
 rootcause = "0.11.0"
+
+# Async traits
+async-trait = "0.1"
 
 # Web framework
 leptos = "0.8.15"

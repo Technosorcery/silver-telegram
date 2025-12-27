@@ -1,7 +1,7 @@
 //! Main Leptos application component and routing.
 
 use leptos::prelude::*;
-use leptos_meta::{provide_meta_context, Title};
+use leptos_meta::{Title, provide_meta_context};
 use leptos_router::{
     components::{Route, Router, Routes},
     path,

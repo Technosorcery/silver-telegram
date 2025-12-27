@@ -3,7 +3,7 @@
 async fn main() {
     use axum::Router;
     use leptos::prelude::*;
-    use leptos_axum::{generate_route_list, LeptosRoutes};
+    use leptos_axum::{LeptosRoutes, generate_route_list};
     use silver_telegram_server::app::App;
     use tower_http::services::ServeDir;
     use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};

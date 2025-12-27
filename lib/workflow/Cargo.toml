@@ -1,18 +1,19 @@
 [package]
-name = "silver-telegram-core"
+name = "silver-telegram-workflow"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Core domain types and error handling for silver-telegram"
+description = "Workflow engine for silver-telegram"
 
 [dependencies]
-rootcause.workspace = true
+silver-telegram-core.workspace = true
+petgraph.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 ulid.workspace = true
+chrono.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
-serde_json.workspace = true
