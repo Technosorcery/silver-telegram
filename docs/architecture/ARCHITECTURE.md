@@ -887,7 +887,7 @@ silver-telegram/
 |-------------|----------|--------|
 | 8.1 | Conversational Context | **DECIDED** - Hybrid surfacing; explicit-only core; 90-day conversation retention |
 | 8.2 | Workflow Representation | **DECIDED** - Directed graph stored as JSONB (ADR-005) |
-| 8.3 | Graduation Criteria | **PARTIAL** - Working framework; needs refinement before implementation |
+| 8.3 | Graduation Criteria | **DECIDED** - Holistic assessment; three automation flavors; detection signals and decision flow defined |
 | 8.4 | AI Primitive Boundaries | **DECIDED** - Per-node configuration; each node specifies its constraint level |
 | 8.5 | Workflow Execution Patterns | **DECIDED** - ADR-006 |
 | 8.6 | State and Memory | **DECIDED** - Workflow memory (AI-managed, per-workflow, opaque bytes) |

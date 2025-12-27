@@ -577,7 +577,7 @@ How the system gets better over time (all explicit, not magic).
 
 ### 8.3 Graduation Criteria
 
-**Status**: Working framework (needs refinement before implementation)
+**Status**: Decided
 
 #### Core insight
 
@@ -614,7 +614,7 @@ Graduation produces different workflow types depending on the pattern:
    - Event correlation → event trigger
    - Ad-hoc → manual/callable trigger
 
-#### Open for implementation planning
+#### Implementation details (determined during implementation)
 
 - Specific thresholds (N occurrences in M days)
 - Semantic similarity measurement for "same request"
