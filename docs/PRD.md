@@ -564,21 +564,16 @@ How the system gets better over time (all explicit, not magic).
 
 ### 8.2 Workflow Representation
 
-**Question**: What artifact results from workflow authoring?
+**Status**: Decided
 
-Options:
+**Decision**: Workflows are directed graphs stored as JSONB. See [ADR-005](architecture/ARCHITECTURE.md#adr-005-workflow-representation-as-petgraph-with-jsonb-storage) for full rationale.
 
-- **Code**: Full programming language, maximum flexibility, requires dev skills to edit
-- **Declarative config**: YAML/JSON/TOML, readable but limited expressiveness
-- **Visual graph**: GUI-editable, accessible but harder to version control
-- **DSL**: Purpose-built language, balanced but another thing to learn
-- **Hybrid**: High-level structure in config, complex logic in code
-
-Considerations:
-
-- Must be inspectable (user can understand what it does)
-- Authoring agent needs to produce it
-- User may need to edit it manually
+| Aspect | Approach |
+|--------|----------|
+| **Structure** | Directed graph (petgraph) with nodes and edges |
+| **Storage** | Metadata in columns, graph serialized as JSONB |
+| **Inspectability** | Graph structure is readable; UI can render visually |
+| **Authoring** | Agent produces graph structure; user can edit via UI |
 
 ### 8.3 Graduation Criteria
 

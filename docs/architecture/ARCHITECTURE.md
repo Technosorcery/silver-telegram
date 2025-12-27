@@ -402,7 +402,7 @@ This decouples authorization from the data model, allowing flexible sharing with
 
 ### 5.4 Workflow Memory
 
-Workflows can persist opaque state across runs via **workflow memory**. See [Section 6.8](#68-workflow-memory-nodes) for node descriptions and [PRD 8.6](../PRD.md#86-state-and-memory) for design decisions.
+Workflows can persist opaque state across runs via **workflow memory**. See [Section 6.7](#67-workflow-memory-nodes) for node descriptions and [PRD 8.6](../PRD.md#86-state-and-memory) for design decisions.
 
 ---
 
@@ -464,19 +464,7 @@ Input ports may be marked as required. Workflow validation fails if a required i
 
 Triggers cascade delete when their workflow is deleted.
 
-### 6.6 Expression Language
-
-> **DEFERRED**: Expression language for transforms and dynamic config not yet selected.
-
-**Requirements established:**
-- JSON transformation capability
-- Conditional expressions
-- String templating with data interpolation
-- Must have viable Rust implementation
-
-**Candidates considered:** JSONata (Rust lib incomplete), CEL (more validation-focused), Tera/Jinja (less powerful transforms).
-
-### 6.7 Workflow Execution Patterns
+### 6.6 Workflow Execution Patterns
 
 The workflow engine (not the Coordinate AI primitive) handles these static execution patterns:
 
@@ -486,7 +474,6 @@ The workflow engine (not the Coordinate AI primitive) handles these static execu
 | **Graph parallel** | Multiple outgoing edges (no FanOut) | Copied as-is to each downstream node |
 | **FanOut parallel** | FanOut node iterates over items | Exploded into individual items |
 | **Combined** | FanOut + multiple outgoing edges | Each item sent to all downstream nodes |
-| **Conditional** | Branch node with predicate per edge | TBD |
 
 **FanOut node**:
 - Waits for all inputs (barrier), flattens arrays into single collection
@@ -505,9 +492,7 @@ The workflow engine (not the Coordinate AI primitive) handles these static execu
 
 **Distinct from Coordinate**: The Coordinate AI primitive (see [Section 4.4](#44-ai-layer-components)) handles *dynamic* orchestration where the LLM decides at runtime what to execute, how many rounds, and when to stop. Static patterns above are graph structure; Coordinate is LLM-controlled execution.
 
-> **OPEN**: Conditional branching not yet discussed.
-
-### 6.8 Workflow Memory Nodes
+### 6.7 Workflow Memory Nodes
 
 Memory nodes enable workflows to persist state across runs, managed by AI agents.
 
@@ -606,10 +591,6 @@ PostgreSQL, SpiceDB, and NATS run as container sidecars alongside the applicatio
 
 All services use persistent volumes for data durability.
 
-### 8.4 Open Questions
-
-- Volume and backup strategy
-
 ---
 
 ## 9. API Design
@@ -630,14 +611,6 @@ When needed, considerations from [PRD Section 6.4](../PRD.md#64-extensibility):
 - API-first design
 - All functionality accessible via API
 - Support for external tooling and scripting
-
-### 9.3 Webhook Endpoints
-
-> **TBD**: Design for webhook ingestion for external triggers (when workflow triggers are implemented).
-
-### 9.4 Admin/Observability Endpoints
-
-> **TBD**: Design for administrative and monitoring endpoints.
 
 ---
 
@@ -831,7 +804,6 @@ silver-telegram/
 
 **Deferred**:
 - Expression language for transforms/dynamic config (requirements established, no viable Rust impl identified yet)
-- Execution model (graph traversal, parallel handling, state)
 
 **Rationale**:
 - petgraph is mature, well-documented Rust graph library
@@ -906,7 +878,6 @@ silver-telegram/
 | Decision | Status | Notes |
 |----------|--------|-------|
 | General API design | **DEFERRED** | Not needed yet; Leptos server functions serve frontend only |
-| Expression language | **DEFERRED** | Requirements established; no viable Rust impl yet |
 | Workflow execution model | **DECIDED** | See ADR-006 |
 | Context persistence strategy | **DECIDED** | See PRD 8.1 and Section 4.2 |
 
@@ -915,10 +886,10 @@ silver-telegram/
 | PRD Section | Question | Status |
 |-------------|----------|--------|
 | 8.1 | Conversational Context | **DECIDED** - Hybrid surfacing; explicit-only core; 90-day conversation retention |
-| 8.2 | Workflow Representation | **DECIDED** - petgraph + JSONB storage (ADR-005) |
+| 8.2 | Workflow Representation | **DECIDED** - Directed graph stored as JSONB (ADR-005) |
 | 8.3 | Graduation Criteria | **PARTIAL** - Working framework; needs refinement before implementation |
 | 8.4 | AI Primitive Boundaries | **DECIDED** - Per-node configuration; each node specifies its constraint level |
-| 8.5 | Workflow Execution Patterns | **DECIDED** - ADR-006; conditional branching still TBD |
+| 8.5 | Workflow Execution Patterns | **DECIDED** - ADR-006 |
 | 8.6 | State and Memory | **DECIDED** - Workflow memory (AI-managed, per-workflow, opaque bytes) |
 | 8.7 | Feedback Granularity | **DECIDED** - All explicit levels available (per-output, per-interaction, per-run), none required; implicit rejected |
 | 8.8 | Learning Mechanisms | **DECIDED** - Meta-workflow suggests changes (new workflows, structure, prompts, thresholds, model training); user approves |
