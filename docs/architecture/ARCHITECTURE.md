@@ -171,7 +171,7 @@ flowchart TB
 ```mermaid
 flowchart TB
     subgraph Workflow Engine
-        DEF[Definition Store<br/>Workflow definitions<br/>with versioning]
+        DEF[Definition Store<br/>Workflow definitions]
 
         EXEC[Workflow Executor<br/>Step-by-step execution]
 
@@ -193,7 +193,7 @@ flowchart TB
 
 | Component | Responsibility |
 |-----------|----------------|
-| **Definition Store** | Persists workflow definitions with version history |
+| **Definition Store** | Persists workflow definitions |
 | **Workflow Executor** | Executes workflows step-by-step, advancing through nodes |
 | **State Machine** | Tracks execution state for each workflow run |
 | **Node Registry** | Registry of available node types (AI layer, integrations, control flow) |
@@ -359,7 +359,6 @@ erDiagram
     CONVERSATION_SESSION ||--o{ MESSAGE : contains
     CONVERSATION_SESSION ||--o{ CONTEXT_FACT : extracts
 
-    WORKFLOW ||--o{ WORKFLOW_VERSION : has
     WORKFLOW ||--o{ WORKFLOW_RUN : executes
     WORKFLOW ||--o{ TRIGGER : has
     WORKFLOW ||--o| WORKFLOW_MEMORY : has
@@ -381,7 +380,6 @@ erDiagram
 | **Message** | Individual message in a conversation |
 | **Context Fact** | Extracted fact or preference from conversation |
 | **Workflow** | A defined automation |
-| **Workflow Version** | Version history for a workflow |
 | **Workflow Run** | Single execution of a workflow |
 | **Workflow Memory** | Opaque cross-run state managed by AI agents within a workflow |
 | **Trigger** | What initiates a workflow (schedule, event, manual) |
@@ -404,7 +402,7 @@ This decouples authorization from the data model, allowing flexible sharing with
 
 ### 5.4 Workflow Memory
 
-Workflows can persist opaque state across runs via **workflow memory**. See [Section 6.9](#69-workflow-memory-nodes) for node descriptions and [PRD 8.6](../PRD.md#86-state-and-memory) for design decisions.
+Workflows can persist opaque state across runs via **workflow memory**. See [Section 6.8](#68-workflow-memory-nodes) for node descriptions and [PRD 8.6](../PRD.md#86-state-and-memory) for design decisions.
 
 ---
 
@@ -478,12 +476,7 @@ Triggers cascade delete when their workflow is deleted.
 
 **Candidates considered:** JSONata (Rust lib incomplete), CEL (more validation-focused), Tera/Jinja (less powerful transforms).
 
-### 6.7 Open Questions
-
-- ~~**Execution model**~~: See [ADR-006](#adr-006-workflow-execution-model)
-- **Versioning**: How workflow changes are tracked, rollback, draft vs published
-
-### 6.8 Workflow Execution Patterns
+### 6.7 Workflow Execution Patterns
 
 The workflow engine (not the Coordinate AI primitive) handles these static execution patterns:
 
@@ -514,7 +507,7 @@ The workflow engine (not the Coordinate AI primitive) handles these static execu
 
 > **OPEN**: Conditional branching not yet discussed.
 
-### 6.9 Workflow Memory Nodes
+### 6.8 Workflow Memory Nodes
 
 Memory nodes enable workflows to persist state across runs, managed by AI agents.
 
@@ -839,7 +832,6 @@ silver-telegram/
 **Deferred**:
 - Expression language for transforms/dynamic config (requirements established, no viable Rust impl identified yet)
 - Execution model (graph traversal, parallel handling, state)
-- Versioning (change tracking, draft vs published)
 
 **Rationale**:
 - petgraph is mature, well-documented Rust graph library
@@ -916,7 +908,6 @@ silver-telegram/
 | General API design | **DEFERRED** | Not needed yet; Leptos server functions serve frontend only |
 | Expression language | **DEFERRED** | Requirements established; no viable Rust impl yet |
 | Workflow execution model | **DECIDED** | See ADR-006 |
-| Workflow versioning | **OPEN** | Change tracking, rollback, draft vs published |
 | Context persistence strategy | **DECIDED** | See PRD 8.1 and Section 4.2 |
 
 ### 12.2 PRD Open Questions Mapping
@@ -926,11 +917,11 @@ silver-telegram/
 | 8.1 | Conversational Context | **DECIDED** - Hybrid surfacing; explicit-only core; 90-day conversation retention |
 | 8.2 | Workflow Representation | **DECIDED** - petgraph + JSONB storage (ADR-005) |
 | 8.3 | Graduation Criteria | **PARTIAL** - Working framework; needs refinement before implementation |
-| 8.4 | AI Primitive Boundaries | **N/A** - per-node configuration |
+| 8.4 | AI Primitive Boundaries | **DECIDED** - Per-node configuration; each node specifies its constraint level |
 | 8.5 | Workflow Execution Patterns | **DECIDED** - ADR-006; conditional branching still TBD |
 | 8.6 | State and Memory | **DECIDED** - Workflow memory (AI-managed, per-workflow, opaque bytes) |
-| 8.7 | Feedback Granularity | **OPEN** |
-| 8.8 | Learning Mechanisms | **OPEN** |
+| 8.7 | Feedback Granularity | **DECIDED** - All explicit levels available (per-output, per-interaction, per-run), none required; implicit rejected |
+| 8.8 | Learning Mechanisms | **DECIDED** - Meta-workflow suggests changes (new workflows, structure, prompts, thresholds, model training); user approves |
 | 8.9 | Multi-User | **DECIDED** - SpiceDB for relationship-based authz (ADR-002) |
 
 ---

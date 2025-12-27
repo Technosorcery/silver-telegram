@@ -325,7 +325,6 @@ For recurring patterns that should run autonomously.
 |Capability             |Description                                                          |
 |-----------------------|---------------------------------------------------------------------|
 |**Workflow Definition**|Declare a sequence of steps with branching, loops, and error handling|
-|**Workflow Versioning**|Track changes, roll back to previous versions                        |
 |**Workflow State**     |Persist execution state for long-running or resumable workflows      |
 |**Workflow Inspection**|View the definition in readable form; understand what it will do     |
 |**Execution History**  |See past runs, inputs, outputs, and decisions at each step           |
@@ -384,7 +383,6 @@ How workflows get created.
 |**Example-Based Refinement**|Provide examples of inputs and desired outputs                   |
 |**Template Library**        |Start from common patterns, customize                            |
 |**Test Execution**          |Run workflow with sample data before deploying                   |
-|**Diff and Review**         |See what changed between versions                                |
 |**Graduation Prompts**      |Meta-workflow suggests automations based on conversation patterns|
 
 ### 5.7 Human-in-the-Loop
@@ -470,7 +468,6 @@ How the system gets better over time (all explicit, not magic).
 
 |Requirement               |Description                                  |
 |--------------------------|---------------------------------------------|
-|**Configuration as Code** |Workflows are version-controllable artifacts |
 |**Sensible Defaults**     |Works out of box for common cases            |
 |**Progressive Disclosure**|Simple things simple, complex things possible|
 |**Documentation**         |Comprehensive, example-rich documentation    |
@@ -580,7 +577,6 @@ Options:
 Considerations:
 
 - Must be inspectable (user can understand what it does)
-- Should be version-controllable (diffable, mergeable)
 - Authoring agent needs to produce it
 - User may need to edit it manually
 
@@ -632,20 +628,22 @@ Graduation produces different workflow types depending on the pattern:
 
 ### 8.4 AI Primitive Boundaries
 
-**Question**: How much latitude does each AI primitive have?
+**Status**: Decided
 
-For example, “Classify” could mean:
+**Decision**: Per-node configuration. Each node instance specifies its own constraint level rather than having a platform-wide policy.
 
-- Pick from exactly these categories (constrained)
-- Pick from these categories or suggest a new one (semi-constrained)
-- Determine appropriate categories (unconstrained)
+For example, "Classify" can be configured per-use as:
 
-Considerations:
+- **Constrained**: Pick from exactly these categories
+- **Semi-constrained**: Pick from these categories or suggest a new one
+- **Unconstrained**: Determine appropriate categories
 
-- More constraint = more predictable, less flexible
-- Less constraint = more capable, harder to debug
-- Different use cases need different levels
-- Should this be configurable per-use?
+This allows workflows to choose the appropriate trade-off for each use case:
+
+- More constraint = more predictable, easier to debug
+- Less constraint = more capable, more flexible
+
+The constraint level is part of the node's configuration, not a global setting.
 
 ### 8.5 Workflow Execution Patterns
 
@@ -735,51 +733,71 @@ Note: Current memory is loaded implicitly by the node, not a user-wired input.
 
 ### 8.7 Feedback Granularity
 
-**Question**: At what level do users provide feedback?
+**Status**: Decided
 
-Options:
+#### Decision
 
-- **Per-output**: “This classification was wrong”
-- **Per-interaction**: “That answer was helpful / not helpful”
-- **Per-workflow-run**: “This workflow execution succeeded/failed”
-- **Implicit**: Infer from user behavior (edited the draft, ignored the notification)
+All explicit feedback levels available, none required:
 
-Considerations:
+| Level | Example | When useful |
+|-------|---------|-------------|
+| **Per-output** | "This classification was wrong" | Correcting specific AI decisions |
+| **Per-interaction** | "That answer was helpful" | Rating conversational responses |
+| **Per-workflow-run** | "This run succeeded/failed" | Evaluating overall workflow behavior |
 
-- Finer granularity = more data, more user burden
-- Coarser granularity = less actionable signal
-- Implicit feedback scales but may be misinterpreted
+Users can provide feedback at whatever granularity makes sense in the moment. No feedback level is mandatory.
+
+#### Implicit feedback rejected
+
+Implicit feedback (inferring from user behavior) is not supported:
+
+- **Inaction is ambiguous**: User ignoring a notification could mean disagreement, or they're busy, or they didn't see it
+- **Action requires external visibility**: "User edited the draft" happens in email clients or other systems the platform doesn't control
 
 ### 8.8 Learning Mechanisms
 
-**Question**: How does feedback translate to improved behavior?
+**Status**: Decided
 
-Options:
+#### Mechanism
 
-- **Prompt refinement**: Adjust instructions to AI primitives
-- **Example injection**: Add user-provided examples to context
-- **Threshold adjustment**: Change confidence thresholds for routing
-- **Model fine-tuning**: Periodically retrain on collected feedback
-- **Retrieval augmentation**: Store feedback as retrievable context
+The meta-workflow reviews interaction history (which includes feedback) and suggests changes. All suggestions are explicit and require user approval.
 
-Considerations:
+This is the same meta-workflow described in Section 4.4 (Workflow Suggestion). Graduation is one learning outcome among several.
 
-- Different mechanisms suit different feedback types
-- Some are immediate (prompt refinement), others batched (fine-tuning)
-- User should understand what the system learned
+#### Possible outcomes
+
+| Outcome | Description | Example suggestion |
+|---------|-------------|-------------------|
+| **New workflow** | Graduation of repeated pattern | "You ask for tomorrow's calendar every evening. Create a daily briefing?" |
+| **Workflow structure** | Add, remove, or reorder nodes | "Your news workflow misses sports. Add a sports feed node?" |
+| **Prompt refinement** | Change instructions to AI nodes | "Your classifier keeps missing newsletters. Refine the prompt?" |
+| **Threshold adjustment** | Change confidence routing | "You've approved 5 'uncertain' classifications. Lower the threshold?" |
+| **Model training** | Recommend fine-tuning | "You have enough feedback to train a custom classifier. Proceed?" |
+
+#### Key principle
+
+All learning is explicit and user-controlled. The meta-workflow detects patterns and suggests changes; the user reviews and approves. No automatic model updates or silent behavior changes.
 
 ### 8.9 Multi-User Considerations
 
-**Question**: How does the platform handle households or small teams?
+**Status**: Decided (foundational architecture)
 
-Considerations:
+#### Decision
 
-- Shared workflows vs. personal workflows
-- Shared integrations (family calendar) vs. personal (work email)
-- Privacy between users
-- Conflicting preferences
+Multi-user authorization uses SpiceDB (Zanzibar-style relationship-based authorization). See [ADR-002](architecture/ARCHITECTURE.md#adr-002-spicedb-for-relationship-based-authorization) for full rationale.
 
-(May be out of scope for v1, but affects foundational design)
+#### How it addresses the considerations
+
+| Consideration | Approach |
+|---------------|----------|
+| **Shared vs. personal workflows** | Relationships in SpiceDB: `workflow:123#viewer@user:spouse` |
+| **Shared vs. personal integrations** | Same pattern: `integration:family-calendar#user@user:spouse` |
+| **Privacy between users** | Default isolation; sharing requires explicit relationship |
+| **Conflicting preferences** | Per-user facts/preferences; shared resources have owner who resolves conflicts |
+
+#### Deferred
+
+Detailed permission model (what granular permissions exist beyond owner/viewer) deferred until needed.
 
 -----
 
