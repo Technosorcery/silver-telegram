@@ -10,6 +10,7 @@ description = "Scheduler for silver-telegram workflow triggers"
 [dependencies]
 silver-telegram-core.workspace = true
 silver-telegram-workflow.workspace = true
+async-trait.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 chrono.workspace = true

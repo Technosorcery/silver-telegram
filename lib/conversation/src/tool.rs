@@ -6,6 +6,7 @@
 //! - Search and retrieval
 
 use crate::error::ToolError;
+use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
@@ -130,15 +131,13 @@ impl ToolResult {
 }
 
 /// Trait for tool execution.
+#[async_trait]
 pub trait Tool: Send + Sync {
     /// Returns the tool definition.
     fn definition(&self) -> ToolDefinition;
 
     /// Executes the tool with the given input.
-    fn execute(
-        &self,
-        input: JsonValue,
-    ) -> impl std::future::Future<Output = Result<ToolResult, ToolError>> + Send;
+    async fn execute(&self, input: JsonValue) -> Result<ToolResult, ToolError>;
 }
 
 /// Registry of available tools.

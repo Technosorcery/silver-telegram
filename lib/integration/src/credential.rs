@@ -4,6 +4,7 @@
 //! No plaintext credentials are stored in configuration or logs.
 
 use crate::error::CredentialError;
+use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use silver_telegram_core::{CredentialId, IntegrationAccountId, UserId};
@@ -166,54 +167,43 @@ impl Credential {
 /// Trait for credential storage.
 ///
 /// Implementations must encrypt credentials at rest.
+#[async_trait]
 pub trait CredentialVault: Send + Sync {
     /// Stores a credential with its data.
     ///
     /// # Errors
     ///
     /// Returns an error if storage fails.
-    fn store(
+    async fn store(
         &self,
         credential: Credential,
         data: CredentialData,
-    ) -> impl std::future::Future<Output = Result<CredentialId, CredentialError>> + Send;
+    ) -> Result<CredentialId, CredentialError>;
 
     /// Retrieves credential metadata (without data).
-    fn get_metadata(
-        &self,
-        id: CredentialId,
-    ) -> impl std::future::Future<Output = Result<Credential, CredentialError>> + Send;
+    async fn get_metadata(&self, id: CredentialId) -> Result<Credential, CredentialError>;
 
     /// Retrieves credential data (decrypted).
-    fn get_data(
-        &self,
-        id: CredentialId,
-    ) -> impl std::future::Future<Output = Result<CredentialData, CredentialError>> + Send;
+    async fn get_data(&self, id: CredentialId) -> Result<CredentialData, CredentialError>;
 
     /// Updates credential data.
-    fn update_data(
+    async fn update_data(
         &self,
         id: CredentialId,
         data: CredentialData,
-    ) -> impl std::future::Future<Output = Result<(), CredentialError>> + Send;
+    ) -> Result<(), CredentialError>;
 
     /// Deletes a credential.
-    fn delete(
-        &self,
-        id: CredentialId,
-    ) -> impl std::future::Future<Output = Result<(), CredentialError>> + Send;
+    async fn delete(&self, id: CredentialId) -> Result<(), CredentialError>;
 
     /// Lists credentials for an integration account.
-    fn list_for_account(
+    async fn list_for_account(
         &self,
         account_id: IntegrationAccountId,
-    ) -> impl std::future::Future<Output = Result<Vec<Credential>, CredentialError>> + Send;
+    ) -> Result<Vec<Credential>, CredentialError>;
 
     /// Lists credentials for a user.
-    fn list_for_user(
-        &self,
-        user_id: UserId,
-    ) -> impl std::future::Future<Output = Result<Vec<Credential>, CredentialError>> + Send;
+    async fn list_for_user(&self, user_id: UserId) -> Result<Vec<Credential>, CredentialError>;
 }
 
 #[cfg(test)]

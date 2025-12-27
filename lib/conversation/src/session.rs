@@ -5,6 +5,7 @@
 
 use crate::error::SessionError;
 use crate::message::Message;
+use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use silver_telegram_core::{ConversationSessionId, UserId};
@@ -148,43 +149,32 @@ impl Session {
 }
 
 /// Trait for session storage.
+#[async_trait]
 pub trait SessionManager: Send + Sync {
     /// Creates a new session.
-    fn create_session(
-        &self,
-        user_id: UserId,
-    ) -> impl std::future::Future<Output = Result<Session, SessionError>> + Send;
+    async fn create_session(&self, user_id: UserId) -> Result<Session, SessionError>;
 
     /// Gets a session by ID.
-    fn get_session(
-        &self,
-        id: ConversationSessionId,
-    ) -> impl std::future::Future<Output = Result<Session, SessionError>> + Send;
+    async fn get_session(&self, id: ConversationSessionId) -> Result<Session, SessionError>;
 
     /// Updates a session.
-    fn update_session(
-        &self,
-        session: Session,
-    ) -> impl std::future::Future<Output = Result<(), SessionError>> + Send;
+    async fn update_session(&self, session: Session) -> Result<(), SessionError>;
 
     /// Lists sessions for a user.
-    fn list_sessions(
+    async fn list_sessions(
         &self,
         user_id: UserId,
         include_ended: bool,
-    ) -> impl std::future::Future<Output = Result<Vec<Session>, SessionError>> + Send;
+    ) -> Result<Vec<Session>, SessionError>;
 
     /// Deletes a session.
-    fn delete_session(
-        &self,
-        id: ConversationSessionId,
-    ) -> impl std::future::Future<Output = Result<(), SessionError>> + Send;
+    async fn delete_session(&self, id: ConversationSessionId) -> Result<(), SessionError>;
 
     /// Gets expired sessions (for cleanup).
-    fn get_expired_sessions(
+    async fn get_expired_sessions(
         &self,
         older_than: DateTime<Utc>,
-    ) -> impl std::future::Future<Output = Result<Vec<ConversationSessionId>, SessionError>> + Send;
+    ) -> Result<Vec<ConversationSessionId>, SessionError>;
 }
 
 #[cfg(test)]

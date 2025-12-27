@@ -3,6 +3,7 @@
 //! Provides a unified interface for different LLM providers (local Ollama, cloud APIs).
 
 use crate::error::LlmError;
+use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
@@ -203,16 +204,14 @@ impl TokenUsage {
 /// Trait for LLM backends.
 ///
 /// This trait defines the interface that all LLM providers must implement.
+#[async_trait]
 pub trait LlmBackend: Send + Sync {
     /// Generates a response for the given request.
     ///
     /// # Errors
     ///
     /// Returns an error if the LLM call fails.
-    fn generate(
-        &self,
-        request: &LlmRequest,
-    ) -> impl std::future::Future<Output = Result<LlmResponse, LlmError>> + Send;
+    async fn generate(&self, request: &LlmRequest) -> Result<LlmResponse, LlmError>;
 
     /// Returns the provider type.
     fn provider(&self) -> LlmProvider;

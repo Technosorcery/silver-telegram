@@ -9,6 +9,7 @@ description = "Integration framework for silver-telegram"
 
 [dependencies]
 silver-telegram-core.workspace = true
+async-trait.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 chrono.workspace = true

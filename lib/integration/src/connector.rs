@@ -4,6 +4,7 @@
 //! interface for external service operations.
 
 use crate::error::ConnectorError;
+use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 
@@ -147,6 +148,7 @@ impl OperationResult {
 ///
 /// All integrations must implement this trait to provide a uniform interface
 /// for the workflow engine and conversation service.
+#[async_trait]
 pub trait Connector: Send + Sync {
     /// Returns information about this connector.
     fn info(&self) -> ConnectorInfo;
@@ -156,15 +158,10 @@ pub trait Connector: Send + Sync {
     /// # Errors
     ///
     /// Returns an error if the operation fails.
-    fn execute(
-        &self,
-        operation: Operation,
-    ) -> impl std::future::Future<Output = Result<OperationResult, ConnectorError>> + Send;
+    async fn execute(&self, operation: Operation) -> Result<OperationResult, ConnectorError>;
 
     /// Checks if the connection is healthy.
-    fn health_check(
-        &self,
-    ) -> impl std::future::Future<Output = Result<bool, ConnectorError>> + Send;
+    async fn health_check(&self) -> Result<bool, ConnectorError>;
 
     /// Returns the list of supported capabilities.
     fn capabilities(&self) -> Vec<ConnectorCapability> {

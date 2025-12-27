@@ -7,6 +7,7 @@
 //! - Workflow execution history: User-configurable (default 90 days)
 
 use crate::error::ContextError;
+use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
@@ -191,44 +192,30 @@ impl FactQuery {
 }
 
 /// Trait for context storage.
+#[async_trait]
 pub trait ContextStore: Send + Sync {
     /// Stores or updates a fact.
-    fn store_fact(
-        &self,
-        fact: ContextFact,
-    ) -> impl std::future::Future<Output = Result<FactId, ContextError>> + Send;
+    async fn store_fact(&self, fact: ContextFact) -> Result<FactId, ContextError>;
 
     /// Gets a fact by ID.
-    fn get_fact(
-        &self,
-        id: FactId,
-    ) -> impl std::future::Future<Output = Result<ContextFact, ContextError>> + Send;
+    async fn get_fact(&self, id: FactId) -> Result<ContextFact, ContextError>;
 
     /// Queries facts.
-    fn query_facts(
-        &self,
-        query: FactQuery,
-    ) -> impl std::future::Future<Output = Result<Vec<ContextFact>, ContextError>> + Send;
+    async fn query_facts(&self, query: FactQuery) -> Result<Vec<ContextFact>, ContextError>;
 
     /// Deletes a fact.
-    fn delete_fact(
-        &self,
-        id: FactId,
-    ) -> impl std::future::Future<Output = Result<(), ContextError>> + Send;
+    async fn delete_fact(&self, id: FactId) -> Result<(), ContextError>;
 
     /// Gets all core facts for a user (for context injection).
-    fn get_core_facts(
-        &self,
-        user_id: UserId,
-    ) -> impl std::future::Future<Output = Result<Vec<ContextFact>, ContextError>> + Send;
+    async fn get_core_facts(&self, user_id: UserId) -> Result<Vec<ContextFact>, ContextError>;
 
     /// Searches facts by semantic similarity (for retrieval).
-    fn search_facts(
+    async fn search_facts(
         &self,
         user_id: UserId,
         query: &str,
         limit: usize,
-    ) -> impl std::future::Future<Output = Result<Vec<ContextFact>, ContextError>> + Send;
+    ) -> Result<Vec<ContextFact>, ContextError>;
 }
 
 #[cfg(test)]

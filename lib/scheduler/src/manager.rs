@@ -3,6 +3,7 @@
 //! Manages the denormalized trigger table for efficient lookup.
 
 use crate::error::TriggerError;
+use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use silver_telegram_core::{IntegrationAccountId, TriggerId, WorkflowId};
@@ -96,70 +97,48 @@ impl TriggerRecord {
 }
 
 /// Trait for trigger storage and lookup.
+#[async_trait]
 pub trait TriggerManager: Send + Sync {
     /// Registers a trigger.
-    fn register(
-        &self,
-        trigger: Trigger,
-    ) -> impl std::future::Future<Output = Result<TriggerId, TriggerError>> + Send;
+    async fn register(&self, trigger: Trigger) -> Result<TriggerId, TriggerError>;
 
     /// Gets a trigger by ID.
-    fn get(
-        &self,
-        id: TriggerId,
-    ) -> impl std::future::Future<Output = Result<Trigger, TriggerError>> + Send;
+    async fn get(&self, id: TriggerId) -> Result<Trigger, TriggerError>;
 
     /// Updates a trigger.
-    fn update(
-        &self,
-        trigger: Trigger,
-    ) -> impl std::future::Future<Output = Result<(), TriggerError>> + Send;
+    async fn update(&self, trigger: Trigger) -> Result<(), TriggerError>;
 
     /// Deletes a trigger.
-    fn delete(
-        &self,
-        id: TriggerId,
-    ) -> impl std::future::Future<Output = Result<(), TriggerError>> + Send;
+    async fn delete(&self, id: TriggerId) -> Result<(), TriggerError>;
 
     /// Deletes all triggers for a workflow.
-    fn delete_for_workflow(
-        &self,
-        workflow_id: WorkflowId,
-    ) -> impl std::future::Future<Output = Result<u32, TriggerError>> + Send;
+    async fn delete_for_workflow(&self, workflow_id: WorkflowId) -> Result<u32, TriggerError>;
 
     /// Lists triggers for a workflow.
-    fn list_for_workflow(
-        &self,
-        workflow_id: WorkflowId,
-    ) -> impl std::future::Future<Output = Result<Vec<Trigger>, TriggerError>> + Send;
+    async fn list_for_workflow(&self, workflow_id: WorkflowId) -> Result<Vec<Trigger>, TriggerError>;
 
     /// Finds triggers by webhook path.
-    fn find_by_webhook_path(
-        &self,
-        path: &str,
-    ) -> impl std::future::Future<Output = Result<Vec<TriggerRecord>, TriggerError>> + Send;
+    async fn find_by_webhook_path(&self, path: &str) -> Result<Vec<TriggerRecord>, TriggerError>;
 
     /// Finds triggers by integration event.
-    fn find_by_integration_event(
+    async fn find_by_integration_event(
         &self,
         integration_id: IntegrationAccountId,
         event_type: &str,
-    ) -> impl std::future::Future<Output = Result<Vec<TriggerRecord>, TriggerError>> + Send;
+    ) -> Result<Vec<TriggerRecord>, TriggerError>;
 
     /// Gets all schedule triggers that need evaluation.
-    fn get_schedule_triggers(
-        &self,
-    ) -> impl std::future::Future<Output = Result<Vec<TriggerRecord>, TriggerError>> + Send;
+    async fn get_schedule_triggers(&self) -> Result<Vec<TriggerRecord>, TriggerError>;
 
     /// Reconciles triggers for a workflow (syncs from graph).
     ///
     /// This is called when a workflow is saved to ensure the trigger table
     /// matches the trigger nodes in the workflow graph.
-    fn reconcile(
+    async fn reconcile(
         &self,
         workflow_id: WorkflowId,
         triggers: Vec<Trigger>,
-    ) -> impl std::future::Future<Output = Result<ReconcileResult, TriggerError>> + Send;
+    ) -> Result<ReconcileResult, TriggerError>;
 }
 
 /// Result of trigger reconciliation.

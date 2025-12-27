@@ -21,6 +21,9 @@ silver-telegram-scheduler = { path = "lib/scheduler" }
 # Error handling
 rootcause = "0.11.0"
 
+# Async traits
+async-trait = "0.1"
+
 # Web framework
 leptos = "0.8.15"
 leptos_router = "0.8"

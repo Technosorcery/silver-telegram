@@ -1,6 +1,7 @@
 //! Cron-based scheduling with missed execution handling.
 
 use crate::error::ScheduleError;
+use async_trait::async_trait;
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use silver_telegram_core::{TriggerId, WorkflowId};
@@ -181,32 +182,28 @@ impl ScheduledExecution {
 }
 
 /// Evaluates schedules and handles missed executions.
+#[async_trait]
 pub trait ScheduleEvaluator: Send + Sync {
     /// Gets executions that are ready to run.
-    fn get_ready_executions(
-        &self,
-    ) -> impl std::future::Future<Output = Result<Vec<ScheduledExecution>, ScheduleError>> + Send;
+    async fn get_ready_executions(&self) -> Result<Vec<ScheduledExecution>, ScheduleError>;
 
     /// Creates the next scheduled execution for a trigger.
-    fn schedule_next(
+    async fn schedule_next(
         &self,
         trigger_id: TriggerId,
         workflow_id: WorkflowId,
         schedule: &CronSchedule,
-    ) -> impl std::future::Future<Output = Result<ScheduledExecution, ScheduleError>> + Send;
+    ) -> Result<ScheduledExecution, ScheduleError>;
 
     /// Handles missed executions based on policy.
-    fn handle_missed_executions(
+    async fn handle_missed_executions(
         &self,
         trigger_id: TriggerId,
         behavior: MissedExecutionBehavior,
-    ) -> impl std::future::Future<Output = Result<Vec<ScheduledExecution>, ScheduleError>> + Send;
+    ) -> Result<Vec<ScheduledExecution>, ScheduleError>;
 
     /// Updates execution status.
-    fn update_execution(
-        &self,
-        execution: ScheduledExecution,
-    ) -> impl std::future::Future<Output = Result<(), ScheduleError>> + Send;
+    async fn update_execution(&self, execution: ScheduledExecution) -> Result<(), ScheduleError>;
 }
 
 #[cfg(test)]

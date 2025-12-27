@@ -6,6 +6,7 @@
 //! - Per-workflow-run: Evaluating overall workflow behavior
 
 use crate::llm_call::LlmInvocationId;
+use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
@@ -169,30 +170,28 @@ impl Feedback {
 }
 
 /// Trait for storing and retrieving feedback.
+#[async_trait]
 pub trait FeedbackStore: Send + Sync {
     /// Stores a feedback record.
-    fn store(
-        &self,
-        feedback: Feedback,
-    ) -> impl std::future::Future<Output = Result<(), crate::error::FeedbackError>> + Send;
+    async fn store(&self, feedback: Feedback) -> Result<(), crate::error::FeedbackError>;
 
     /// Retrieves feedback for an LLM invocation.
-    fn get_for_invocation(
+    async fn get_for_invocation(
         &self,
         invocation_id: LlmInvocationId,
-    ) -> impl std::future::Future<Output = Result<Vec<Feedback>, crate::error::FeedbackError>> + Send;
+    ) -> Result<Vec<Feedback>, crate::error::FeedbackError>;
 
     /// Retrieves feedback for a workflow run.
-    fn get_for_workflow_run(
+    async fn get_for_workflow_run(
         &self,
         run_id: WorkflowRunId,
-    ) -> impl std::future::Future<Output = Result<Vec<Feedback>, crate::error::FeedbackError>> + Send;
+    ) -> Result<Vec<Feedback>, crate::error::FeedbackError>;
 
     /// Gets aggregate statistics for a user's feedback.
-    fn get_user_stats(
+    async fn get_user_stats(
         &self,
         user_id: UserId,
-    ) -> impl std::future::Future<Output = Result<FeedbackStats, crate::error::FeedbackError>> + Send;
+    ) -> Result<FeedbackStats, crate::error::FeedbackError>;
 }
 
 /// Aggregate statistics about feedback.
