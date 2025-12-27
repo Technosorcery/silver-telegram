@@ -10,9 +10,9 @@
 use crate::edge::Edge;
 use crate::error::GraphError;
 use crate::node::{Node, NodeId};
+use petgraph::Direction;
 use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::visit::EdgeRef;
-use petgraph::Direction;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -402,11 +402,7 @@ mod tests {
         graph.add_node(classify);
 
         // Invalid edge - nonexistent port
-        let result = graph.add_edge(
-            trigger_id,
-            classify_id,
-            Edge::new("nonexistent", "content"),
-        );
+        let result = graph.add_edge(trigger_id, classify_id, Edge::new("nonexistent", "content"));
         assert!(result.is_err());
     }
 

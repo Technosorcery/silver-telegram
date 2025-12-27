@@ -232,7 +232,10 @@ mod tests {
             .with_max_tokens(100);
 
         assert_eq!(request.prompt, "Hello, world!");
-        assert_eq!(request.system, Some("You are a helpful assistant.".to_string()));
+        assert_eq!(
+            request.system,
+            Some("You are a helpful assistant.".to_string())
+        );
         assert_eq!(request.temperature, Some(0.7));
         assert_eq!(request.max_tokens, Some(100));
     }

@@ -32,10 +32,7 @@ impl ExecutionState {
     /// Returns true if this is a terminal state.
     #[must_use]
     pub fn is_terminal(&self) -> bool {
-        matches!(
-            self,
-            Self::Completed | Self::Failed | Self::Cancelled
-        )
+        matches!(self, Self::Completed | Self::Failed | Self::Cancelled)
     }
 }
 
@@ -61,10 +58,7 @@ impl NodeExecutionState {
     /// Returns true if this is a terminal state.
     #[must_use]
     pub fn is_terminal(&self) -> bool {
-        matches!(
-            self,
-            Self::Completed | Self::Failed | Self::Skipped
-        )
+        matches!(self, Self::Completed | Self::Failed | Self::Skipped)
     }
 
     /// Returns true if this node blocks downstream nodes.
@@ -102,7 +96,11 @@ pub struct WorkflowRun {
 impl WorkflowRun {
     /// Creates a new workflow run in queued state.
     #[must_use]
-    pub fn new(workflow_id: WorkflowId, trigger_id: Option<TriggerId>, input: Option<JsonValue>) -> Self {
+    pub fn new(
+        workflow_id: WorkflowId,
+        trigger_id: Option<TriggerId>,
+        input: Option<JsonValue>,
+    ) -> Self {
         Self {
             id: WorkflowRunId::new(),
             workflow_id,

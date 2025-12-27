@@ -229,7 +229,10 @@ mod tests {
     fn session_generate_title() {
         let mut session = Session::new(UserId::new());
         session.add_message(Message::new(MessageRole::User, "What's the weather today?"));
-        session.add_message(Message::new(MessageRole::Assistant, "I can help with that."));
+        session.add_message(Message::new(
+            MessageRole::Assistant,
+            "I can help with that.",
+        ));
 
         session.generate_title();
 

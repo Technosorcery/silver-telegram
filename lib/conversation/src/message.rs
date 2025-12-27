@@ -2,8 +2,8 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use silver_telegram_core::MessageId;
 use serde_json::Value as JsonValue;
+use silver_telegram_core::MessageId;
 
 /// The role of a message sender.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -205,8 +205,7 @@ mod tests {
     #[test]
     fn message_with_tool_calls() {
         let tool_call = ToolCall::new("call_1", "search", serde_json::json!({"query": "weather"}));
-        let msg = Message::assistant("Let me search for that.")
-            .with_tool_call(tool_call);
+        let msg = Message::assistant("Let me search for that.").with_tool_call(tool_call);
 
         assert!(msg.has_tool_calls());
         assert_eq!(msg.tool_calls.len(), 1);
@@ -228,8 +227,11 @@ mod tests {
 
     #[test]
     fn message_serde_roundtrip() {
-        let msg = Message::assistant("Here's the result:")
-            .with_tool_call(ToolCall::new("call_1", "calc", serde_json::json!({})));
+        let msg = Message::assistant("Here's the result:").with_tool_call(ToolCall::new(
+            "call_1",
+            "calc",
+            serde_json::json!({}),
+        ));
 
         let json = serde_json::to_string(&msg).expect("serialize");
         let parsed: Message = serde_json::from_str(&json).expect("deserialize");

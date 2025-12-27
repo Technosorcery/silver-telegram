@@ -141,7 +141,11 @@ impl PromptTemplate {
 
     /// Adds a variable definition.
     #[must_use]
-    pub fn with_variable(mut self, name: impl Into<String>, definition: VariableDefinition) -> Self {
+    pub fn with_variable(
+        mut self,
+        name: impl Into<String>,
+        definition: VariableDefinition,
+    ) -> Self {
         self.variables.insert(name.into(), definition);
         self
     }
@@ -197,7 +201,10 @@ impl PromptTemplate {
     }
 
     /// Validates that all required variables are provided.
-    pub fn validate_variables(&self, variables: &HashMap<String, JsonValue>) -> Result<(), Vec<String>> {
+    pub fn validate_variables(
+        &self,
+        variables: &HashMap<String, JsonValue>,
+    ) -> Result<(), Vec<String>> {
         let missing: Vec<String> = self
             .variables
             .iter()
@@ -270,8 +277,14 @@ mod tests {
         );
 
         let mut vars = HashMap::new();
-        vars.insert("categories".to_string(), serde_json::json!("spam, important, other"));
-        vars.insert("email".to_string(), serde_json::json!("Hello, this is a test email."));
+        vars.insert(
+            "categories".to_string(),
+            serde_json::json!("spam, important, other"),
+        );
+        vars.insert(
+            "email".to_string(),
+            serde_json::json!("Hello, this is a test email."),
+        );
 
         let rendered = template.render(&vars);
         assert!(rendered.contains("spam, important, other"));

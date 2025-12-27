@@ -7,8 +7,8 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use silver_telegram_core::{IntegrationAccountId, TriggerId, WorkflowId};
-use silver_telegram_workflow::trigger::{Trigger, TriggerConfig, TriggerType};
 use silver_telegram_workflow::NodeId;
+use silver_telegram_workflow::trigger::{Trigger, TriggerConfig, TriggerType};
 
 /// A denormalized trigger record optimized for lookup.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -115,7 +115,10 @@ pub trait TriggerManager: Send + Sync {
     async fn delete_for_workflow(&self, workflow_id: WorkflowId) -> Result<u32, TriggerError>;
 
     /// Lists triggers for a workflow.
-    async fn list_for_workflow(&self, workflow_id: WorkflowId) -> Result<Vec<Trigger>, TriggerError>;
+    async fn list_for_workflow(
+        &self,
+        workflow_id: WorkflowId,
+    ) -> Result<Vec<Trigger>, TriggerError>;
 
     /// Finds triggers by webhook path.
     async fn find_by_webhook_path(&self, path: &str) -> Result<Vec<TriggerRecord>, TriggerError>;

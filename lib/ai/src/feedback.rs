@@ -94,9 +94,7 @@ pub enum FeedbackTarget {
         original_output: JsonValue,
     },
     /// Feedback on a workflow run.
-    WorkflowRun {
-        run_id: WorkflowRunId,
-    },
+    WorkflowRun { run_id: WorkflowRunId },
     /// Feedback on a conversation message.
     ConversationMessage {
         session_id: String,
@@ -107,7 +105,11 @@ pub enum FeedbackTarget {
 impl Feedback {
     /// Creates positive feedback on an LLM output.
     #[must_use]
-    pub fn positive_llm_output(user_id: UserId, invocation_id: LlmInvocationId, output: JsonValue) -> Self {
+    pub fn positive_llm_output(
+        user_id: UserId,
+        invocation_id: LlmInvocationId,
+        output: JsonValue,
+    ) -> Self {
         Self {
             id: FeedbackId::new(),
             user_id,
@@ -244,7 +246,8 @@ mod tests {
         let output = serde_json::json!({"category": "spam"});
         let correction = serde_json::json!({"category": "important"});
 
-        let feedback = Feedback::negative_llm_output(user_id, invocation_id, output, correction.clone());
+        let feedback =
+            Feedback::negative_llm_output(user_id, invocation_id, output, correction.clone());
 
         assert_eq!(feedback.signal, FeedbackSignal::Negative);
         assert_eq!(feedback.correction, Some(correction));

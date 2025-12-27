@@ -257,7 +257,10 @@ mod tests {
         let request = call.build_request();
         assert!(request.prompt.contains("Classify this email"));
         assert!(request.prompt.contains("Hello world"));
-        assert_eq!(request.system, Some("You are a helpful classifier.".to_string()));
+        assert_eq!(
+            request.system,
+            Some("You are a helpful classifier.".to_string())
+        );
         assert_eq!(request.temperature, Some(0.3));
     }
 

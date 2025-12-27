@@ -19,15 +19,9 @@ pub enum GraphError {
     /// Node with the given ID was not found in the graph.
     NodeNotFound { node_id: NodeId },
     /// Source port not found on node.
-    SourcePortNotFound {
-        node_id: NodeId,
-        port_name: String,
-    },
+    SourcePortNotFound { node_id: NodeId, port_name: String },
     /// Target port not found on node.
-    TargetPortNotFound {
-        node_id: NodeId,
-        port_name: String,
-    },
+    TargetPortNotFound { node_id: NodeId, port_name: String },
     /// Port schemas are incompatible.
     IncompatibleSchemas {
         source_node: NodeId,

@@ -143,7 +143,9 @@ impl RateLimiter {
         let now = Utc::now();
         let window_duration = Duration::seconds(self.config.window_seconds as i64);
 
-        let window_state = state.entry(key.to_string()).or_insert_with(WindowState::new);
+        let window_state = state
+            .entry(key.to_string())
+            .or_insert_with(WindowState::new);
 
         // Check if we need to start a new window
         if now - window_state.window_start >= window_duration {

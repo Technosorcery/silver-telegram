@@ -130,7 +130,11 @@ pub enum ExecutionStatus {
 impl ScheduledExecution {
     /// Creates a new scheduled execution.
     #[must_use]
-    pub fn new(trigger_id: TriggerId, workflow_id: WorkflowId, scheduled_for: DateTime<Utc>) -> Self {
+    pub fn new(
+        trigger_id: TriggerId,
+        workflow_id: WorkflowId,
+        scheduled_for: DateTime<Utc>,
+    ) -> Self {
         Self {
             id: ScheduledExecutionId::new(),
             trigger_id,
@@ -152,8 +156,7 @@ impl ScheduledExecution {
     /// Checks if this execution was missed.
     #[must_use]
     pub fn is_missed(&self, threshold: Duration) -> bool {
-        self.status == ExecutionStatus::Pending
-            && Utc::now() > self.scheduled_for + threshold
+        self.status == ExecutionStatus::Pending && Utc::now() > self.scheduled_for + threshold
     }
 
     /// Marks the execution as started.
@@ -212,8 +215,7 @@ mod tests {
 
     #[test]
     fn cron_schedule_creation() {
-        let schedule = CronSchedule::new("0 7 * * *")
-            .with_timezone("America/New_York");
+        let schedule = CronSchedule::new("0 7 * * *").with_timezone("America/New_York");
 
         assert_eq!(schedule.expression, "0 7 * * *");
         assert_eq!(schedule.timezone, Some("America/New_York".to_string()));

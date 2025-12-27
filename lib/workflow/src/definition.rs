@@ -231,7 +231,10 @@ mod tests {
             .with_tag("email");
 
         assert_eq!(metadata.name, "My Workflow");
-        assert_eq!(metadata.description, Some("Does something useful".to_string()));
+        assert_eq!(
+            metadata.description,
+            Some("Does something useful".to_string())
+        );
         assert_eq!(metadata.version, "1.0.0");
         assert_eq!(metadata.tags, vec!["daily", "email"]);
     }

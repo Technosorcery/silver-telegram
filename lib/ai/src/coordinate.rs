@@ -161,7 +161,12 @@ pub struct ActionExecution {
 impl ActionExecution {
     /// Creates a successful action execution.
     #[must_use]
-    pub fn success(tool_name: impl Into<String>, input: JsonValue, output: JsonValue, latency_ms: u64) -> Self {
+    pub fn success(
+        tool_name: impl Into<String>,
+        input: JsonValue,
+        output: JsonValue,
+        latency_ms: u64,
+    ) -> Self {
         Self {
             tool_name: tool_name.into(),
             input,
@@ -173,7 +178,12 @@ impl ActionExecution {
 
     /// Creates a failed action execution.
     #[must_use]
-    pub fn failure(tool_name: impl Into<String>, input: JsonValue, error: impl Into<String>, latency_ms: u64) -> Self {
+    pub fn failure(
+        tool_name: impl Into<String>,
+        input: JsonValue,
+        error: impl Into<String>,
+        latency_ms: u64,
+    ) -> Self {
         Self {
             tool_name: tool_name.into(),
             input,

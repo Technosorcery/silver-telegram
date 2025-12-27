@@ -47,9 +47,7 @@ pub enum CredentialData {
     /// Bearer token.
     BearerToken { token: String },
     /// Custom credential data.
-    Custom {
-        data: serde_json::Value,
-    },
+    Custom { data: serde_json::Value },
 }
 
 impl CredentialData {

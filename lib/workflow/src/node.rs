@@ -455,10 +455,9 @@ impl Node {
                 ),
             },
             NodeConfig::Memory(mem_config) => match mem_config {
-                MemoryNodeConfig::LoadMemory => (
-                    vec![],
-                    vec![OutputPort::new("memory", PortSchema::any())],
-                ),
+                MemoryNodeConfig::LoadMemory => {
+                    (vec![], vec![OutputPort::new("memory", PortSchema::any())])
+                }
                 MemoryNodeConfig::RecordMemory { .. } => (
                     vec![InputPort::required("workflow_output", PortSchema::any())],
                     vec![OutputPort::new("memory", PortSchema::any())],

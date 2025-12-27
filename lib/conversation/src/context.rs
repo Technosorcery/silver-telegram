@@ -256,12 +256,8 @@ mod tests {
     #[test]
     fn fact_update() {
         let user_id = UserId::new();
-        let mut fact = ContextFact::explicit(
-            user_id,
-            "preference",
-            "color",
-            serde_json::json!("blue"),
-        );
+        let mut fact =
+            ContextFact::explicit(user_id, "preference", "color", serde_json::json!("blue"));
 
         let original_updated = fact.updated_at;
         std::thread::sleep(std::time::Duration::from_millis(10));

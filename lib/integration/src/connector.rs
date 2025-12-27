@@ -211,10 +211,7 @@ mod tests {
 
     #[test]
     fn operation_result_failure() {
-        let result = OperationResult::failure(
-            "Connection timeout",
-            OperationMetadata::default(),
-        );
+        let result = OperationResult::failure("Connection timeout", OperationMetadata::default());
 
         assert!(!result.success);
         assert!(result.data.is_none());

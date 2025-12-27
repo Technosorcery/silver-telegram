@@ -173,7 +173,9 @@ impl ToolRegistry {
 
     /// Returns tool definitions by category.
     pub fn by_category(&self, category: ToolCategory) -> impl Iterator<Item = &ToolDefinition> {
-        self.definitions.values().filter(move |d| d.category == category)
+        self.definitions
+            .values()
+            .filter(move |d| d.category == category)
     }
 
     /// Returns the number of registered tools.
@@ -244,12 +246,10 @@ mod tests {
         let mut registry = ToolRegistry::new();
 
         registry.register(
-            ToolDefinition::new("tool1", "First tool")
-                .with_category(ToolCategory::Integration)
+            ToolDefinition::new("tool1", "First tool").with_category(ToolCategory::Integration),
         );
         registry.register(
-            ToolDefinition::new("tool2", "Second tool")
-                .with_category(ToolCategory::Search)
+            ToolDefinition::new("tool2", "Second tool").with_category(ToolCategory::Search),
         );
 
         assert_eq!(registry.len(), 2);
@@ -264,13 +264,12 @@ mod tests {
     fn tool_registry_llm_format() {
         let mut registry = ToolRegistry::new();
         registry.register(
-            ToolDefinition::new("calculate", "Do math")
-                .with_input_schema(serde_json::json!({
-                    "type": "object",
-                    "properties": {
-                        "expression": { "type": "string" }
-                    }
-                }))
+            ToolDefinition::new("calculate", "Do math").with_input_schema(serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "expression": { "type": "string" }
+                }
+            })),
         );
 
         let llm_format = registry.to_llm_format();
