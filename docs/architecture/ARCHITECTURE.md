@@ -209,7 +209,7 @@ flowchart TB
 
         CS[Context Store<br/>Conversation history<br/>Extracted facts]
 
-        AI[AI Layer Interface<br/>LLM Call and Coordinate]
+        AI[AI Layer Interface<br/>AI Node]
 
         TR[Tool Registry<br/>Available tools]
 
@@ -226,7 +226,7 @@ flowchart TB
 |-----------|----------------|
 | **Session Manager** | Manages active conversation session lifecycle |
 | **Context Store** | Stores conversation history and extracted context |
-| **AI Layer Interface** | Interface to AI primitives (LLM Call, Coordinate) |
+| **AI Layer Interface** | Interface to AI node execution |
 | **Tool Registry** | Registry of tools available during conversation |
 | **Authoring Controller** | Handles workflow creation from conversation |
 
@@ -277,10 +277,7 @@ flowchart TB
 ```mermaid
 flowchart TB
     subgraph AI Layer
-        subgraph Primitives
-            CALL[LLM Call<br/>Single-shot inference]
-            COORD[Coordinate<br/>LLM-driven execution loop]
-        end
+        AI[AI Node<br/>Prompt + optional tools]
 
         LLM[LLM Backend<br/>Provider abstraction]
 
@@ -289,48 +286,40 @@ flowchart TB
         FB[Feedback Store<br/>User feedback tracking]
     end
 
-    CALL --> LLM
-    CALL --> SCHEMA
-    COORD --> CALL
-    COORD --> FB
+    AI --> LLM
+    AI --> SCHEMA
+    AI --> FB
 ```
 
-#### Fundamental Primitives
+#### AI Node
 
-There are two architecturally distinct AI primitives:
+There is one fundamental AI primitive: the **AI Node**.
 
-| Primitive | Nature | Description |
-|-----------|--------|-------------|
-| **LLM Call** | Single-shot inference | Context + prompt + optional output schema → output |
-| **Coordinate** | LLM-driven loop | Goal → (decide actions → execute → evaluate) → repeat until done |
+The AI node receives:
+- Inputs (0-n) from upstream nodes or data injection
+- Tools (0-m) from connected tool nodes
+- A goal (context + prompt)
+- Optional output schema (for structured output)
 
-**LLM Call** is stateless, single-shot inference. The LLM receives context and a prompt, optionally constrained by an output schema, and produces a response.
+The AI node uses its inputs and tools as directed by its goal to generate output. How many times it calls tools (zero, once, or many) is simply what happens during execution - not a mode or configuration choice.
 
-**Coordinate** is an iterative process where the LLM controls execution flow:
-1. LLM evaluates context and goal
-2. LLM decides what operations to run (and how many)
-3. Operations execute (tools, sub-workflows, integrations)
-4. LLM evaluates results
-5. LLM decides: done, or more operations needed?
-6. Repeat until done
+The semantic labels in the PRD (Classify, Generate, Summarize, Coordinate, etc.) describe common patterns of use, not distinct primitives or modes.
 
-The key distinction: in Coordinate, the LLM decides the control flow dynamically, not just producing output. It can invoke multiple rounds of operations, reacting to results of previous rounds.
+#### Semantic Node Types
 
-#### Workflow Node Types
+The PRD describes several user-facing operations (Classify, Generate, Summarize, Extract, Score, Deduplicate, Decide). These are **semantic labels** for common AI node configurations:
 
-The PRD describes several user-facing operations (Classify, Generate, Summarize, Extract, Score, Deduplicate, Decide). These are **workflow node types**, not distinct primitives. They are all built on **LLM Call** with different configurations:
+| Semantic Type | Configuration |
+|---------------|---------------|
+| **Classify** | Prompt asking to categorize, output schema = {category, confidence} |
+| **Generate** | Prompt with free-form output |
+| **Summarize** | Prompt asking for condensation |
+| **Extract** | Prompt asking to pull out data, output schema = user-defined structure |
+| **Score** | Prompt with output schema = numeric value |
+| **Deduplicate** | Prompt with output schema = boolean |
+| **Decide** | Prompt asking to select, output schema = one of the provided options |
 
-| Node Type | Implementation |
-|-----------|----------------|
-| **Classify** | LLM Call with prompt asking to categorize, output schema = {category, confidence} |
-| **Generate** | LLM Call with free-form output |
-| **Summarize** | LLM Call with prompt asking for condensation |
-| **Extract** | LLM Call with prompt asking to pull out data, output schema = user-defined structure |
-| **Score** | LLM Call with output schema = numeric value |
-| **Deduplicate** | LLM Call with output schema = boolean |
-| **Decide** | LLM Call with prompt asking to select, output schema = one of the provided options |
-
-These node types provide semantic clarity in workflow definitions but share the same underlying LLM Call primitive.
+These provide semantic clarity but are all configurations of the same AI node.
 
 #### Supporting Components
 
@@ -380,10 +369,10 @@ erDiagram
 | **Workflow Memory** | Opaque cross-run state managed by AI agents within a workflow |
 | **Trigger** | What initiates a workflow (schedule, event, manual) |
 | **Node Execution** | Execution record for a single node in a run |
-| **Decision Trace** | Explanation of LLM decision (for Coordinate loops and complex calls) |
+| **Decision Trace** | Explanation of AI node decisions (for iterative tool use and complex calls) |
 | **Integration Account** | Configured external service connection |
 | **Credential** | Encrypted credential for an integration |
-| **LLM Invocation** | Record of an LLM Call or Coordinate execution |
+| **LLM Invocation** | Record of an AI node execution |
 | **Feedback** | User feedback on LLM output |
 
 ### 5.3 Authorization Model
@@ -421,7 +410,7 @@ Edges connect specific ports, not just nodes. This enables nodes with multiple i
 | Category | Examples | Notes |
 |----------|----------|-------|
 | **Trigger** | Schedule, Webhook, IntegrationEvent | Entry points; denormalized for execution |
-| **AI Layer** | LLM Call, Coordinate | See [Section 4.4](#44-ai-layer-components) |
+| **AI Layer** | AI Node | See [Section 4.4](#44-ai-layer-components) |
 | **Integration** | email.fetch, calendar.list | Protocol-specific actions |
 | **Transform** | Expression-based data manipulation | For structured data |
 | **Control Flow** | Branch, Loop, Parallel, Join | Graph structure |
@@ -462,7 +451,7 @@ Triggers cascade delete when their workflow is deleted.
 
 ### 6.6 Workflow Execution Patterns
 
-The workflow engine (not the Coordinate AI primitive) handles these static execution patterns:
+The workflow engine handles these static execution patterns:
 
 | Pattern | Mechanism | Vec<T> handling |
 |---------|-----------|-----------------|
@@ -486,7 +475,7 @@ The workflow engine (not the Coordinate AI primitive) handles these static execu
 - Construction time: Port schema compatibility between connected nodes
 - Runtime: Each node validates its output against its declared output schema (errors caught at source)
 
-**Distinct from Coordinate**: The Coordinate AI primitive (see [Section 4.4](#44-ai-layer-components)) handles *dynamic* orchestration where the LLM decides at runtime what to execute, how many rounds, and when to stop. Static patterns above are graph structure; Coordinate is LLM-controlled execution.
+**Distinct from AI node execution**: The patterns above are static graph structure. AI nodes handle their own execution internally - using available tools as needed to achieve their goal.
 
 ### 6.7 Workflow Memory Nodes
 
@@ -510,7 +499,7 @@ Memory nodes enable workflows to persist state across runs, managed by AI agents
 | **Output** | Updated memory (also persisted to storage) |
 | **Implicit input** | Current memory loaded automatically, not user-wired |
 
-**Execution**: Wraps an LLM Call. The AI receives current memory, workflow output, and update instructions, then produces new memory content. On success, memory is persisted as a transaction.
+**Execution**: Wraps an AI node. The AI receives current memory, workflow output, and update instructions, then produces new memory content. On success, memory is persisted as a transaction.
 
 **Checkpointing**: Multiple Record nodes in a workflow enable intermediate saves. If later steps fail, subsequent runs see the last successfully recorded state.
 
@@ -621,7 +610,7 @@ When needed, considerations from [PRD Section 6.4](../PRD.md#64-extensibility):
 ### 10.2 Decision Traces
 
 - LLM invocations record reasoning
-- Coordinate loops record each iteration's decisions and actions
+- AI node iterations record each tool call's decisions and actions
 - Outputs traceable to prompts, context, and output schemas
 
 ### 10.3 Health Checks
@@ -637,7 +626,7 @@ From [PRD Section 5.8](../PRD.md#58-observability):
 | Metric Category | Examples |
 |-----------------|----------|
 | Execution | Workflow completion rate, error rate, latency |
-| AI Layer | LLM call latency, Coordinate iteration counts, output quality signals |
+| AI Layer | AI node latency, tool call iteration counts, output quality signals |
 | Resources | Memory usage, database size, queue depth |
 
 ---

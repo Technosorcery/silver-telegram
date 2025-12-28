@@ -358,7 +358,7 @@ AI-powered operations available both in conversation and as workflow steps.
 |**Decide**     |Context + options + criteria|Selected option      |"Which response is best?"          |
 |**Coordinate** |Goal + available tools      |Final result         |"Plan this trip" (multi-step research)|
 
-**Note on primitives**: At the implementation level, most primitives above (Classify, Extract, Generate, Summarize, Score, Deduplicate, Decide) are variations of a single LLM call with different prompts and output schemas. **Coordinate** is architecturally distinct: it's an LLM-driven execution loop where the model decides what actions to take, executes them, evaluates results, and repeats until the goal is achieved.
+**Note on primitives**: All primitives above are configurations of a single AI node. The AI node takes inputs (0-n), tools (0-m), and a goal (context + prompt), then uses them as directed to generate output. How many times it calls tools (zero, once, or many) is simply what happens during execution based on the goal - not a mode or configuration choice.
 
 ### 5.5 Integration Framework
 
@@ -831,6 +831,12 @@ Detailed permission model (what granular permissions exist beyond owner/viewer) 
 - **Real-time collaboration**: Async operation model
 - **Marketplace**: No workflow/connector sharing infrastructure
 - **Hosted offering**: Self-hosted only
+- **Conversational mode**: MVP focuses on autonomous workflows; ad-hoc chat interface comes later
+- **Event-based triggers**: Only schedule (cron) triggers for MVP; event/webhook/condition triggers come later
+- **Graduation and meta-workflow**: Pattern recognition and automation suggestions come later
+- **Conversational workflow authoring**: MVP uses visual node-based editor; natural language authoring comes later
+- **In-platform review/feedback**: MVP outputs via email; in-platform review and feedback loops come later
+- **Shared integrations**: MVP is personal only; household/family sharing via SpiceDB comes later
 
 -----
 
@@ -858,7 +864,7 @@ Detailed permission model (what granular permissions exist beyond owner/viewer) 
 |**AI Primitive**       |A bounded AI operation (classify, extract, generate, etc.) usable in conversation or workflows   |
 |**Trigger**            |An event or condition that causes a workflow to execute                                          |
 |**Connector**          |An integration with an external service (email, calendar, etc.)                                  |
-|**Coordinate**         |AI primitive: LLM-driven execution loop that decides what actions to take, executes, evaluates, and repeats|
+|**Coordinate**         |AI node behavior when tools are connected: iteratively decides what actions to take, executes, evaluates, and repeats until done|
 |**Graduation**         |The process of turning a repeated conversational pattern into an autonomous workflow             |
 |**Meta-workflow**      |A workflow that operates on the platform itself (e.g., analyzing conversation patterns)          |
 |**Feedback**           |User signal about AI primitive output quality                                                    |
