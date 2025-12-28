@@ -171,7 +171,7 @@ These are recurring patterns that benefit from explicit automation. The user (po
 **Resulting workflow**:
 
 1. **Trigger**: New email arrives
-1. **Classify**: Is this misdirected? (Categories: intended-for-me, misdirected, uncertain)
+1. **Classify**: Is this misdirected? (Categories chosen by workflow author: intended-for-me, misdirected, uncertain)
 1. **Branch**:
 - If misdirected (high confidence): Generate draft response → Save to Drafts → Notify user
 - If uncertain: Notify user for review
@@ -340,7 +340,8 @@ What causes workflows to execute.
 |**Condition**       |Trigger when a monitored condition becomes true               |
 |**Manual**          |User-initiated execution (from UI or conversation)            |
 |**Sub-workflow**    |Triggered by another workflow or conversational request       |
-|**Missed Execution**|Configurable: skip, run immediately, or run at next window    |
+
+**Missed execution** (configuration for schedule triggers, not a trigger type): Configurable behavior when a scheduled trigger is missed: skip, run immediately, or run at next window.
 
 ### 5.4 AI Primitives
 
@@ -385,18 +386,7 @@ How workflows get created.
 |**Test Execution**          |Run workflow with sample data before deploying                   |
 |**Graduation Prompts**      |Meta-workflow suggests automations based on conversation patterns|
 
-### 5.7 Human-in-the-Loop
-
-Controls for when automation should pause for human input.
-
-|Capability            |Description                                   |
-|----------------------|----------------------------------------------|
-|**Approval Steps**    |Pause execution pending human approval        |
-|**Review Queues**     |Present outputs for review before final action|
-|**Feedback Capture**  |Accept/reject/modify signals on outputs       |
-|**Confidence Routing**|Different paths based on AI confidence level  |
-
-### 5.8 Observability
+### 5.7 Observability
 
 Understanding what happened and why.
 
@@ -409,7 +399,7 @@ Understanding what happened and why.
 |**Alerting**            |Notify on failures or anomalies                       |
 |**Conversation History**|Searchable log of past conversations                  |
 
-### 5.9 Learning and Improvement
+### 5.8 Learning and Improvement
 
 How the system gets better over time (all explicit, not magic).
 
@@ -523,12 +513,12 @@ How the system gets better over time (all explicit, not magic).
 
 #### Decision
 
-**Categories of context**:
+**Categories of context** (these describe retention policies, not distinct storage types):
 
 | Category | Description | Source label |
 |----------|-------------|--------------|
 | **Conversation history** | Raw messages exchanged | N/A |
-| **Facts** | Structured knowledge learned from conversation | `explicit` (user stated) or `inferred` |
+| **Facts** | Structured knowledge learned from conversation | `explicit` (user stated) or `inferred` (metadata property, not a type) |
 | **Corrections/feedback** | User overrides and refinements | N/A |
 | **Workflow execution history** | What ran, when, inputs/outputs | Queryable from conversation, not injected |
 
@@ -625,20 +615,20 @@ Graduation produces different workflow types depending on the pattern:
 
 **Status**: Decided
 
-**Decision**: Per-node configuration. Each node instance specifies its own constraint level rather than having a platform-wide policy.
+**Decision**: Constraint level is inherent in prompt authoring, not an explicit configuration setting. How constrained an AI primitive is depends on how the workflow author writes the prompt.
 
-For example, "Classify" can be configured per-use as:
+For example, a "Classify" node's constraint level is determined by its prompt:
 
-- **Constrained**: Pick from exactly these categories
-- **Semi-constrained**: Pick from these categories or suggest a new one
-- **Unconstrained**: Determine appropriate categories
+- **Constrained**: Prompt specifies "pick from exactly these categories: A, B, C"
+- **Semi-constrained**: Prompt says "pick from these categories or suggest a new one"
+- **Unconstrained**: Prompt says "determine appropriate categories"
 
 This allows workflows to choose the appropriate trade-off for each use case:
 
 - More constraint = more predictable, easier to debug
 - Less constraint = more capable, more flexible
 
-The constraint level is part of the node's configuration, not a global setting.
+The constraint level emerges from prompt design choices, not from a separate configuration field.
 
 ### 8.5 Workflow Execution Patterns
 
@@ -766,7 +756,7 @@ This is the same meta-workflow described in Section 4.4 (Workflow Suggestion). G
 | **New workflow** | Graduation of repeated pattern | "You ask for tomorrow's calendar every evening. Create a daily briefing?" |
 | **Workflow structure** | Add, remove, or reorder nodes | "Your news workflow misses sports. Add a sports feed node?" |
 | **Prompt refinement** | Change instructions to AI nodes | "Your classifier keeps missing newsletters. Refine the prompt?" |
-| **Threshold adjustment** | Change confidence routing | "You've approved 5 'uncertain' classifications. Lower the threshold?" |
+| **Confidence prompt tuning** | Refine how the prompt handles confidence levels | "You've approved 5 'uncertain' classifications. Adjust the prompt's confidence criteria?" |
 | **Model training** | Recommend fine-tuning | "You have enough feedback to train a custom classifier. Proceed?" |
 
 #### Key principle

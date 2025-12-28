@@ -22,24 +22,6 @@ pub struct ToolDefinition {
     pub input_schema: JsonValue,
     /// Whether this tool requires confirmation before execution.
     pub requires_confirmation: bool,
-    /// Tool category.
-    pub category: ToolCategory,
-}
-
-/// Categories of tools.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ToolCategory {
-    /// Integration operations (email, calendar).
-    Integration,
-    /// Workflow invocation.
-    Workflow,
-    /// Search and retrieval.
-    Search,
-    /// System operations.
-    System,
-    /// Custom user-defined tools.
-    Custom,
 }
 
 impl ToolDefinition {
@@ -51,7 +33,6 @@ impl ToolDefinition {
             description: description.into(),
             input_schema: serde_json::json!({}),
             requires_confirmation: false,
-            category: ToolCategory::Custom,
         }
     }
 
@@ -66,13 +47,6 @@ impl ToolDefinition {
     #[must_use]
     pub fn requires_confirmation(mut self) -> Self {
         self.requires_confirmation = true;
-        self
-    }
-
-    /// Sets the category.
-    #[must_use]
-    pub fn with_category(mut self, category: ToolCategory) -> Self {
-        self.category = category;
         self
     }
 }
@@ -171,13 +145,6 @@ impl ToolRegistry {
         self.definitions.values()
     }
 
-    /// Returns tool definitions by category.
-    pub fn by_category(&self, category: ToolCategory) -> impl Iterator<Item = &ToolDefinition> {
-        self.definitions
-            .values()
-            .filter(move |d| d.category == category)
-    }
-
     /// Returns the number of registered tools.
     #[must_use]
     pub fn len(&self) -> usize {
@@ -219,12 +186,10 @@ mod tests {
                     "query": { "type": "string" }
                 }
             }))
-            .with_category(ToolCategory::Integration)
             .requires_confirmation();
 
         assert_eq!(tool.name, "search_emails");
         assert!(tool.requires_confirmation);
-        assert_eq!(tool.category, ToolCategory::Integration);
     }
 
     #[test]
@@ -245,19 +210,12 @@ mod tests {
     fn tool_registry_operations() {
         let mut registry = ToolRegistry::new();
 
-        registry.register(
-            ToolDefinition::new("tool1", "First tool").with_category(ToolCategory::Integration),
-        );
-        registry.register(
-            ToolDefinition::new("tool2", "Second tool").with_category(ToolCategory::Search),
-        );
+        registry.register(ToolDefinition::new("tool1", "First tool"));
+        registry.register(ToolDefinition::new("tool2", "Second tool"));
 
         assert_eq!(registry.len(), 2);
         assert!(registry.get("tool1").is_some());
         assert!(registry.get("nonexistent").is_none());
-
-        let integration_tools: Vec<_> = registry.by_category(ToolCategory::Integration).collect();
-        assert_eq!(integration_tools.len(), 1);
     }
 
     #[test]

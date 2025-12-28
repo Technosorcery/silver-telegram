@@ -232,7 +232,7 @@ flowchart TB
 
 #### Context Persistence Strategy (PRD 8.1 - Decided)
 
-**Categories**: Conversation history, Facts (with explicit/inferred source), Corrections/feedback, Workflow execution history (queryable).
+**Categories** (these describe retention policies, not distinct storage types): Conversation history, Facts (with explicit/inferred as metadata property), Corrections/feedback, Workflow execution history (queryable).
 
 **Retention**: Conversation 90 days; Facts until contradicted; Corrections permanent; Workflow runs configurable (default 90 days).
 
@@ -284,15 +284,12 @@ flowchart TB
 
         LLM[LLM Backend<br/>Provider abstraction]
 
-        PROMPTS[Prompt Registry<br/>Versioned templates]
-
         SCHEMA[Output Schema<br/>Structured output handling]
 
         FB[Feedback Store<br/>User feedback tracking]
     end
 
     CALL --> LLM
-    CALL --> PROMPTS
     CALL --> SCHEMA
     COORD --> CALL
     COORD --> FB
@@ -333,14 +330,13 @@ The PRD describes several user-facing operations (Classify, Generate, Summarize,
 | **Deduplicate** | LLM Call with output schema = boolean |
 | **Decide** | LLM Call with prompt asking to select, output schema = one of the provided options |
 
-These node types provide semantic clarity in workflow definitions and can have specialized prompt templates, but they share the same underlying LLM Call primitive.
+These node types provide semantic clarity in workflow definitions but share the same underlying LLM Call primitive.
 
 #### Supporting Components
 
 | Component | Responsibility |
 |-----------|----------------|
 | **LLM Backend** | Provider abstraction (local Ollama, cloud APIs) |
-| **Prompt Registry** | Versioned prompt templates for node types |
 | **Output Schema** | Structured output handling (JSON schema constraints) |
 | **Feedback Store** | User feedback on AI outputs for improvement |
 
@@ -452,7 +448,7 @@ Input ports may be marked as required. Workflow validation fails if a required i
 
 ### 6.5 Storage
 
-**Workflows**: Metadata stored in columns (name, version, timestamps); graph structure serialized as JSONB. This allows flexible schema evolution for the graph while keeping queryable metadata in columns.
+**Workflows**: Metadata stored in columns (name, timestamps); graph structure serialized as JSONB. This allows flexible schema evolution for the graph while keeping queryable metadata in columns.
 
 **Triggers**: Denormalized from graph into a separate table for efficient lookup. Indexed by trigger type:
 
@@ -888,11 +884,11 @@ silver-telegram/
 | 8.1 | Conversational Context | **DECIDED** - Hybrid surfacing; explicit-only core; 90-day conversation retention |
 | 8.2 | Workflow Representation | **DECIDED** - Directed graph stored as JSONB (ADR-005) |
 | 8.3 | Graduation Criteria | **DECIDED** - Holistic assessment; three automation flavors; detection signals and decision flow defined |
-| 8.4 | AI Primitive Boundaries | **DECIDED** - Per-node configuration; each node specifies its constraint level |
+| 8.4 | AI Primitive Boundaries | **DECIDED** - Constraint level inherent in prompt authoring, not explicit configuration |
 | 8.5 | Workflow Execution Patterns | **DECIDED** - ADR-006 |
 | 8.6 | State and Memory | **DECIDED** - Workflow memory (AI-managed, per-workflow, opaque bytes) |
 | 8.7 | Feedback Granularity | **DECIDED** - All explicit levels available (per-output, per-interaction, per-run), none required; implicit rejected |
-| 8.8 | Learning Mechanisms | **DECIDED** - Meta-workflow suggests changes (new workflows, structure, prompts, thresholds, model training); user approves |
+| 8.8 | Learning Mechanisms | **DECIDED** - Meta-workflow suggests changes (new workflows, structure, prompt refinement, confidence prompt tuning, model training); user approves |
 | 8.9 | Multi-User | **DECIDED** - SpiceDB for relationship-based authz (ADR-002) |
 
 ---

@@ -2,11 +2,9 @@
 //!
 //! Errors are designed for layered context using rootcause:
 //! - `LlmError`: Low-level LLM backend operations
-//! - `PromptError`: Prompt template operations
-//! - `CoordinateError`: Coordination session errors
+//! - `CoordinateError`: Coordination operation errors
 //! - `FeedbackError`: Feedback storage/retrieval errors
 
-use crate::coordinate::CoordinateSessionId;
 use crate::llm_call::LlmInvocationId;
 use std::fmt;
 
@@ -55,54 +53,6 @@ impl fmt::Display for LlmError {
 }
 
 impl std::error::Error for LlmError {}
-
-/// Errors from prompt operations.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum PromptError {
-    /// Template not found.
-    TemplateNotFound { name: String },
-    /// Missing required variable.
-    MissingVariable { template: String, variable: String },
-    /// Variable validation failed.
-    InvalidVariable {
-        template: String,
-        variable: String,
-        reason: String,
-    },
-    /// Template parsing failed.
-    ParseFailed { reason: String },
-}
-
-impl fmt::Display for PromptError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::TemplateNotFound { name } => {
-                write!(f, "prompt template not found: {name}")
-            }
-            Self::MissingVariable { template, variable } => {
-                write!(
-                    f,
-                    "missing required variable '{variable}' in template '{template}'"
-                )
-            }
-            Self::InvalidVariable {
-                template,
-                variable,
-                reason,
-            } => {
-                write!(
-                    f,
-                    "invalid variable '{variable}' in template '{template}': {reason}"
-                )
-            }
-            Self::ParseFailed { reason } => {
-                write!(f, "failed to parse prompt template: {reason}")
-            }
-        }
-    }
-}
-
-impl std::error::Error for PromptError {}
 
 /// Errors from coordinate operations.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -179,8 +129,6 @@ impl std::error::Error for FeedbackError {}
 pub enum AiError {
     /// LLM call context (use as context wrapper).
     LlmCall { invocation_id: LlmInvocationId },
-    /// Coordinate session context (use as context wrapper).
-    CoordinateSession { session_id: CoordinateSessionId },
     /// Output schema validation failed.
     SchemaValidationFailed { expected: String, actual: String },
 }
@@ -190,9 +138,6 @@ impl fmt::Display for AiError {
         match self {
             Self::LlmCall { invocation_id } => {
                 write!(f, "LLM call {invocation_id} failed")
-            }
-            Self::CoordinateSession { session_id } => {
-                write!(f, "coordinate session {session_id} failed")
             }
             Self::SchemaValidationFailed { expected, actual } => {
                 write!(
@@ -218,16 +163,6 @@ mod tests {
         };
         assert!(err.to_string().contains("ollama"));
         assert!(err.to_string().contains("connection refused"));
-    }
-
-    #[test]
-    fn prompt_error_display() {
-        let err = PromptError::MissingVariable {
-            template: "classify_email".to_string(),
-            variable: "content".to_string(),
-        };
-        assert!(err.to_string().contains("content"));
-        assert!(err.to_string().contains("classify_email"));
     }
 
     #[test]

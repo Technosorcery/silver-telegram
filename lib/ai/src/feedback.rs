@@ -188,38 +188,6 @@ pub trait FeedbackStore: Send + Sync {
         &self,
         run_id: WorkflowRunId,
     ) -> Result<Vec<Feedback>, crate::error::FeedbackError>;
-
-    /// Gets aggregate statistics for a user's feedback.
-    async fn get_user_stats(
-        &self,
-        user_id: UserId,
-    ) -> Result<FeedbackStats, crate::error::FeedbackError>;
-}
-
-/// Aggregate statistics about feedback.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct FeedbackStats {
-    /// Total feedback records.
-    pub total_count: u64,
-    /// Positive feedback count.
-    pub positive_count: u64,
-    /// Negative feedback count.
-    pub negative_count: u64,
-    /// Modified feedback count.
-    pub modified_count: u64,
-    /// Breakdown by level.
-    pub by_level: LevelBreakdown,
-}
-
-/// Breakdown of feedback by level.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct LevelBreakdown {
-    /// Per-output feedback count.
-    pub per_output: u64,
-    /// Per-interaction feedback count.
-    pub per_interaction: u64,
-    /// Per-workflow-run feedback count.
-    pub per_workflow_run: u64,
 }
 
 #[cfg(test)]

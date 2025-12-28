@@ -30,8 +30,6 @@ pub struct Message {
     pub content: String,
     /// When the message was created.
     pub timestamp: DateTime<Utc>,
-    /// Optional attachments or structured data.
-    pub attachments: Vec<MessageAttachment>,
     /// Tool call information (for assistant messages).
     pub tool_calls: Vec<ToolCall>,
     /// Tool result (for tool messages).
@@ -47,7 +45,6 @@ impl Message {
             role,
             content: content.into(),
             timestamp: Utc::now(),
-            attachments: Vec::new(),
             tool_calls: Vec::new(),
             tool_result: None,
         }
@@ -83,13 +80,6 @@ impl Message {
         msg
     }
 
-    /// Adds an attachment.
-    #[must_use]
-    pub fn with_attachment(mut self, attachment: MessageAttachment) -> Self {
-        self.attachments.push(attachment);
-        self
-    }
-
     /// Adds a tool call.
     #[must_use]
     pub fn with_tool_call(mut self, tool_call: ToolCall) -> Self {
@@ -102,31 +92,6 @@ impl Message {
     pub fn has_tool_calls(&self) -> bool {
         !self.tool_calls.is_empty()
     }
-}
-
-/// An attachment to a message.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MessageAttachment {
-    /// Attachment type.
-    pub attachment_type: AttachmentType,
-    /// Attachment content or reference.
-    pub content: String,
-    /// Optional metadata.
-    pub metadata: Option<JsonValue>,
-}
-
-/// Types of attachments.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AttachmentType {
-    /// Text content.
-    Text,
-    /// Image (base64 or URL).
-    Image,
-    /// File reference.
-    File,
-    /// Structured data.
-    Data,
 }
 
 /// A tool call made by the assistant.

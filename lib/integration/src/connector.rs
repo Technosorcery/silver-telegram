@@ -114,8 +114,6 @@ pub struct OperationResult {
 pub struct OperationMetadata {
     /// Latency in milliseconds.
     pub latency_ms: u64,
-    /// Number of API calls made.
-    pub api_calls: u32,
     /// Rate limit remaining (if applicable).
     pub rate_limit_remaining: Option<u32>,
 }
@@ -199,7 +197,6 @@ mod tests {
             serde_json::json!({"emails": []}),
             OperationMetadata {
                 latency_ms: 150,
-                api_calls: 1,
                 rate_limit_remaining: Some(99),
             },
         );

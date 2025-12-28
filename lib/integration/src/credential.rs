@@ -38,10 +38,7 @@ pub enum CredentialData {
         scope: Option<String>,
     },
     /// API key.
-    ApiKey {
-        key: String,
-        header_name: Option<String>,
-    },
+    ApiKey { key: String },
     /// Basic authentication.
     BasicAuth { username: String, password: String },
     /// Bearer token.
@@ -66,10 +63,7 @@ impl CredentialData {
     /// Creates API key credential data.
     #[must_use]
     pub fn api_key(key: impl Into<String>) -> Self {
-        Self::ApiKey {
-            key: key.into(),
-            header_name: None,
-        }
+        Self::ApiKey { key: key.into() }
     }
 
     /// Creates basic auth credential data.

@@ -1,7 +1,7 @@
 //! Workflow definition types.
 //!
-//! A workflow is a named, versioned automation that consists of:
-//! - Metadata (name, description, version, timestamps)
+//! A workflow is a named automation that consists of:
+//! - Metadata (name, description, timestamps)
 //! - A directed graph of nodes
 //! - Memory configuration (optional)
 
@@ -17,8 +17,6 @@ pub struct WorkflowMetadata {
     pub name: String,
     /// Description of what this workflow does.
     pub description: Option<String>,
-    /// Semantic version of this workflow definition.
-    pub version: String,
     /// Whether this workflow is enabled.
     pub enabled: bool,
     /// Tags for organization/filtering.
@@ -37,7 +35,6 @@ impl WorkflowMetadata {
         Self {
             name: name.into(),
             description: None,
-            version: "0.1.0".to_string(),
             enabled: true,
             tags: Vec::new(),
             created_at: now,
@@ -49,13 +46,6 @@ impl WorkflowMetadata {
     #[must_use]
     pub fn with_description(mut self, description: impl Into<String>) -> Self {
         self.description = Some(description.into());
-        self
-    }
-
-    /// Sets the version.
-    #[must_use]
-    pub fn with_version(mut self, version: impl Into<String>) -> Self {
-        self.version = version.into();
         self
     }
 
@@ -74,8 +64,6 @@ pub struct WorkflowMemoryConfig {
     pub enabled: bool,
     /// Maximum size of memory in bytes.
     pub max_size_bytes: u32,
-    /// Whether to automatically load memory at start.
-    pub auto_load: bool,
 }
 
 impl Default for WorkflowMemoryConfig {
@@ -83,7 +71,6 @@ impl Default for WorkflowMemoryConfig {
         Self {
             enabled: false,
             max_size_bytes: 64 * 1024, // 64KB default
-            auto_load: true,
         }
     }
 }
@@ -226,7 +213,6 @@ mod tests {
     fn workflow_metadata_builder() {
         let metadata = WorkflowMetadata::new("My Workflow")
             .with_description("Does something useful")
-            .with_version("1.0.0")
             .with_tag("daily")
             .with_tag("email");
 
@@ -235,7 +221,6 @@ mod tests {
             metadata.description,
             Some("Does something useful".to_string())
         );
-        assert_eq!(metadata.version, "1.0.0");
         assert_eq!(metadata.tags, vec!["daily", "email"]);
     }
 

@@ -12,32 +12,6 @@ use crate::llm_call::LlmInvocationId;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
-use ulid::Ulid;
-
-/// Unique identifier for a coordination session.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct CoordinateSessionId(Ulid);
-
-impl CoordinateSessionId {
-    /// Creates a new session ID.
-    #[must_use]
-    pub fn new() -> Self {
-        Self(Ulid::new())
-    }
-}
-
-impl Default for CoordinateSessionId {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl std::fmt::Display for CoordinateSessionId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "coord_{}", self.0)
-    }
-}
 
 /// Configuration for the Coordinate primitive.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -200,11 +174,9 @@ impl ActionExecution {
     }
 }
 
-/// The result of a coordination session.
+/// The result of a coordination operation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CoordinateResult {
-    /// Session identifier.
-    pub session_id: CoordinateSessionId,
     /// The goal that was pursued.
     pub goal: String,
     /// Whether the goal was achieved.
@@ -217,9 +189,9 @@ pub struct CoordinateResult {
     pub steps: Vec<CoordinateStep>,
     /// Total number of iterations.
     pub iteration_count: u32,
-    /// When the session started.
+    /// When the operation started.
     pub started_at: DateTime<Utc>,
-    /// When the session ended.
+    /// When the operation ended.
     pub finished_at: DateTime<Utc>,
 }
 
@@ -227,14 +199,12 @@ impl CoordinateResult {
     /// Creates a successful result.
     #[must_use]
     pub fn success(
-        session_id: CoordinateSessionId,
         goal: String,
         result: JsonValue,
         steps: Vec<CoordinateStep>,
         started_at: DateTime<Utc>,
     ) -> Self {
         Self {
-            session_id,
             goal,
             success: true,
             result: Some(result),
@@ -249,14 +219,12 @@ impl CoordinateResult {
     /// Creates a failed result.
     #[must_use]
     pub fn failure(
-        session_id: CoordinateSessionId,
         goal: String,
         error: String,
         steps: Vec<CoordinateStep>,
         started_at: DateTime<Utc>,
     ) -> Self {
         Self {
-            session_id,
             goal,
             success: false,
             result: None,
@@ -268,7 +236,7 @@ impl CoordinateResult {
         }
     }
 
-    /// Returns the total duration of the session.
+    /// Returns the total duration of the operation.
     #[must_use]
     pub fn duration(&self) -> chrono::Duration {
         self.finished_at - self.started_at
@@ -400,10 +368,8 @@ mod tests {
 
     #[test]
     fn coordinate_result_serde() {
-        let session_id = CoordinateSessionId::new();
         let started = Utc::now();
         let result = CoordinateResult::success(
-            session_id,
             "Test goal".to_string(),
             serde_json::json!({"answer": 42}),
             vec![],
@@ -413,7 +379,7 @@ mod tests {
         let json = serde_json::to_string(&result).expect("serialize");
         let parsed: CoordinateResult = serde_json::from_str(&json).expect("deserialize");
 
-        assert_eq!(result.session_id, parsed.session_id);
+        assert_eq!(result.goal, parsed.goal);
         assert!(parsed.success);
     }
 }

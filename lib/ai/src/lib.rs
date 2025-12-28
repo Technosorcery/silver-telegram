@@ -13,11 +13,9 @@ pub mod coordinate;
 pub mod error;
 pub mod feedback;
 pub mod llm_call;
-pub mod prompt;
 
 pub use backend::{LlmBackend, LlmProvider, LlmRequest, LlmResponse};
 pub use coordinate::{CoordinateConfig, CoordinateResult, CoordinateStep, Coordinator};
-pub use error::{AiError, CoordinateError, FeedbackError, LlmError, PromptError};
+pub use error::{AiError, CoordinateError, FeedbackError, LlmError};
 pub use feedback::{Feedback, FeedbackLevel, FeedbackStore};
 pub use llm_call::{LlmCall, LlmCallConfig, LlmCallResult};
-pub use prompt::{PromptRegistry, PromptTemplate};

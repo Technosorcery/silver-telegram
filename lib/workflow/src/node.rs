@@ -95,12 +95,10 @@ pub enum TriggerNodeConfig {
 pub enum AiLayerNodeConfig {
     /// Single-shot LLM inference.
     LlmCall {
-        /// The prompt template name or inline prompt.
+        /// The prompt to send to the LLM.
         prompt: String,
         /// Optional output schema for structured output.
         output_schema: Option<PortSchema>,
-        /// Constraint level for the output.
-        constraint_level: ConstraintLevel,
     },
     /// LLM-driven execution loop.
     Coordinate {
@@ -115,8 +113,6 @@ pub enum AiLayerNodeConfig {
     Classify {
         /// The categories to choose from.
         categories: Vec<String>,
-        /// Constraint level for the output.
-        constraint_level: ConstraintLevel,
     },
     /// Extract structured data from content.
     Extract {
@@ -154,19 +150,6 @@ pub enum AiLayerNodeConfig {
         /// Criteria for decision.
         criteria: String,
     },
-}
-
-/// Constraint level for AI primitive outputs.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ConstraintLevel {
-    /// Pick from exactly the specified options.
-    #[default]
-    Constrained,
-    /// Pick from options or suggest a new one.
-    SemiConstrained,
-    /// Determine appropriate output freely.
-    Unconstrained,
 }
 
 /// Configuration for integration nodes.
@@ -536,7 +519,6 @@ mod tests {
             "Email Classifier",
             NodeConfig::AiLayer(AiLayerNodeConfig::Classify {
                 categories: vec!["spam".to_string(), "important".to_string()],
-                constraint_level: ConstraintLevel::Constrained,
             }),
         );
         assert_eq!(node.inputs.len(), 1);

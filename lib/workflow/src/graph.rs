@@ -336,7 +336,7 @@ mod graph_serde {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::node::{AiLayerNodeConfig, ConstraintLevel, NodeConfig, TriggerNodeConfig};
+    use crate::node::{AiLayerNodeConfig, NodeConfig, TriggerNodeConfig};
 
     fn create_trigger_node(name: &str) -> Node {
         Node::new(
@@ -353,7 +353,6 @@ mod tests {
             name,
             NodeConfig::AiLayer(AiLayerNodeConfig::Classify {
                 categories: vec!["a".to_string(), "b".to_string()],
-                constraint_level: ConstraintLevel::Constrained,
             }),
         )
     }

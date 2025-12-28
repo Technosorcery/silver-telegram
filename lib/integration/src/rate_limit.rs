@@ -28,29 +28,12 @@ impl RateLimitConfig {
             retry_behavior: RetryBehavior::default(),
         }
     }
-
-    /// Common limit: 100 requests per minute.
-    #[must_use]
-    pub fn per_minute(max_requests: u32) -> Self {
-        Self::new(max_requests, 60)
-    }
-
-    /// Common limit: requests per hour.
-    #[must_use]
-    pub fn per_hour(max_requests: u32) -> Self {
-        Self::new(max_requests, 3600)
-    }
-
-    /// Common limit: requests per day.
-    #[must_use]
-    pub fn per_day(max_requests: u32) -> Self {
-        Self::new(max_requests, 86400)
-    }
 }
 
 impl Default for RateLimitConfig {
     fn default() -> Self {
-        Self::per_minute(60)
+        // 60 requests per minute
+        Self::new(60, 60)
     }
 }
 
@@ -290,20 +273,5 @@ mod tests {
 
         limiter.reset("test");
         assert!(limiter.check("test").is_allowed());
-    }
-
-    #[test]
-    fn rate_limit_config_presets() {
-        let per_minute = RateLimitConfig::per_minute(100);
-        assert_eq!(per_minute.max_requests, 100);
-        assert_eq!(per_minute.window_seconds, 60);
-
-        let per_hour = RateLimitConfig::per_hour(1000);
-        assert_eq!(per_hour.max_requests, 1000);
-        assert_eq!(per_hour.window_seconds, 3600);
-
-        let per_day = RateLimitConfig::per_day(10000);
-        assert_eq!(per_day.max_requests, 10000);
-        assert_eq!(per_day.window_seconds, 86400);
     }
 }

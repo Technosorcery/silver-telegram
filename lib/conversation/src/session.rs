@@ -18,8 +18,6 @@ pub enum SessionState {
     Active,
     /// Session is in workflow authoring mode.
     Authoring,
-    /// Session is paused (waiting for external input).
-    Paused,
     /// Session has ended.
     Ended,
 }
@@ -62,10 +60,6 @@ pub struct Session {
 pub struct SessionMetadata {
     /// Optional session title (generated from first message).
     pub title: Option<String>,
-    /// Tags for organization.
-    pub tags: Vec<String>,
-    /// Whether this session was archived.
-    pub archived: bool,
 }
 
 impl Session {

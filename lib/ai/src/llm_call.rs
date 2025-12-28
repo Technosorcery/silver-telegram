@@ -94,14 +94,12 @@ pub struct LlmCallResult {
     pub model: String,
     /// When the call was made.
     pub timestamp: DateTime<Utc>,
-    /// Latency in milliseconds.
-    pub latency_ms: u64,
 }
 
 impl LlmCallResult {
     /// Creates a result from an LLM response.
     #[must_use]
-    pub fn from_response(response: LlmResponse, latency_ms: u64) -> Self {
+    pub fn from_response(response: LlmResponse) -> Self {
         Self {
             id: LlmInvocationId::new(),
             content: response.content,
@@ -109,7 +107,6 @@ impl LlmCallResult {
             usage: response.usage,
             model: response.model,
             timestamp: Utc::now(),
-            latency_ms,
         }
     }
 }
