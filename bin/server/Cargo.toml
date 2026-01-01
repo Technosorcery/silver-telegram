@@ -13,6 +13,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 silver-telegram-core.workspace = true
 silver-telegram-platform-access = { workspace = true, optional = true }
+silver-telegram-authz = { workspace = true, optional = true }
 
 # Web framework
 leptos = { workspace = true }
@@ -29,6 +30,7 @@ tower-http = { workspace = true, optional = true }
 
 # Authentication
 openidconnect = { workspace = true, optional = true }
+oauth2 = { workspace = true, optional = true }
 reqwest = { workspace = true, optional = true }
 
 # Database
@@ -36,7 +38,7 @@ sqlx = { workspace = true, optional = true }
 
 # Serialization
 serde.workspace = true
-serde_json = { workspace = true, optional = true }
+serde_json.workspace = true
 
 # Configuration
 config = { workspace = true, optional = true }
@@ -50,7 +52,7 @@ async-trait = { workspace = true, optional = true }
 
 # Utilities
 base64 = { workspace = true, optional = true }
-ulid = { workspace = true, optional = true }
+ulid.workspace = true
 
 # Logging
 tracing = { workspace = true, optional = true }
@@ -58,6 +60,7 @@ tracing-subscriber = { workspace = true, optional = true }
 
 # WASM
 wasm-bindgen = { workspace = true, optional = true }
+web-sys = { workspace = true, optional = true }
 console_error_panic_hook = { workspace = true, optional = true }
 getrandom = { workspace = true, optional = true }
 
@@ -66,6 +69,7 @@ hydrate = [
     "leptos/hydrate",
     "dep:console_error_panic_hook",
     "dep:wasm-bindgen",
+    "dep:web-sys",
     "dep:getrandom",
 ]
 ssr = [
@@ -78,16 +82,16 @@ ssr = [
     "dep:tracing",
     "dep:tracing-subscriber",
     "dep:openidconnect",
+    "dep:oauth2",
     "dep:reqwest",
     "dep:silver-telegram-platform-access",
+    "dep:silver-telegram-authz",
     "dep:sqlx",
-    "dep:serde_json",
     "dep:config",
     "dep:chrono",
     "dep:time",
     "dep:async-trait",
     "dep:base64",
-    "dep:ulid",
     "leptos/ssr",
     "leptos_meta/ssr",
     "leptos_router/ssr",

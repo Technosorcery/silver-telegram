@@ -1,8 +1,8 @@
 //! Main Leptos application component and routing.
 
+use crate::pages::{AdminPage, IntegrationsPage, WorkflowEditorPage, WorkflowsPage};
 use leptos::form::ActionForm;
 use leptos::prelude::*;
-use leptos::task::spawn_local;
 use leptos_meta::{Title, provide_meta_context};
 use leptos_router::{
     components::{Route, Router, Routes},
@@ -75,53 +75,55 @@ pub async fn get_current_user() -> Result<Option<UserInfo>, ServerFnError> {
 /// Server function to save the user's timezone.
 #[server]
 pub async fn save_timezone(timezone: String) -> Result<(), ServerFnError> {
-    use crate::auth::db::{SessionRepository, UserRepository};
-    use axum::Extension;
-    use axum_extra::extract::CookieJar;
-    use silver_telegram_platform_access::SessionId;
-    use sqlx::PgPool;
+    use crate::auth::db::UserRepository;
+    use crate::error::UserError;
+    use crate::server_helpers::{get_authenticated_session, get_db_pool};
 
-    const SESSION_COOKIE: &str = "session";
+    let auth = get_authenticated_session().await.map_err(|e| {
+        tracing::debug!(error = %e, "Authentication failed for save_timezone");
+        e.into_server_error()
+    })?;
 
-    // Extract the cookie jar from the request
-    let jar: CookieJar = leptos_axum::extract().await?;
-
-    // Get database pool from request extension
-    let Extension(db_pool): Extension<PgPool> = leptos_axum::extract().await?;
-
-    // Get session ID from cookie
-    let session_cookie = jar
-        .get(SESSION_COOKIE)
-        .ok_or_else(|| ServerFnError::new("Not authenticated"))?;
-
-    let session_id = SessionId::new(session_cookie.value().to_string());
-
-    // Look up session in database
-    let session_repo = SessionRepository::new(db_pool.clone());
-    let session = session_repo
-        .find_by_id(&session_id)
-        .await
-        .map_err(|e| ServerFnError::new(format!("Database error: {}", e)))?
-        .ok_or_else(|| ServerFnError::new("Session not found"))?;
-
-    // Check if session is expired or has no access
-    if session.is_expired() || !session.has_access() {
-        return Err(ServerFnError::new("Session expired or access denied"));
-    }
-
-    // Load user and update timezone
+    let db_pool = get_db_pool();
     let user_repo = UserRepository::new(db_pool.clone());
-    let mut user = user_repo
-        .find_by_id(session.user_id())
-        .await
-        .map_err(|e| ServerFnError::new(format!("Database error: {}", e)))?
-        .ok_or_else(|| ServerFnError::new("User not found"))?;
 
-    user.set_timezone(Some(timezone));
-    user_repo
-        .update(&user)
+    let mut user = user_repo
+        .find_by_id(auth.user_id)
         .await
-        .map_err(|e| ServerFnError::new(format!("Failed to save timezone: {}", e)))?;
+        .map_err(|e| {
+            tracing::error!(
+                error = %e,
+                user_id = %auth.user_id,
+                "Database error loading user"
+            );
+            UserError::DatabaseError {
+                details: e.to_string(),
+            }
+            .into_server_error()
+        })?
+        .ok_or_else(|| {
+            tracing::error!(user_id = %auth.user_id, "User not found after authentication");
+            UserError::NotFound {
+                id: auth.user_id.to_string(),
+            }
+            .into_server_error()
+        })?;
+
+    user.set_timezone(Some(timezone.clone()));
+    user_repo.update(&user).await.map_err(|e| {
+        tracing::error!(
+            error = %e,
+            user_id = %auth.user_id,
+            timezone = %timezone,
+            "Failed to update user timezone"
+        );
+        UserError::DatabaseError {
+            details: e.to_string(),
+        }
+        .into_server_error()
+    })?;
+
+    tracing::info!(user_id = %auth.user_id, timezone = %timezone, "User timezone updated");
 
     Ok(())
 }
@@ -141,6 +143,8 @@ pub fn App() -> impl IntoView {
                     <Route path=path!("/login") view=LoginPage/>
                     <Route path=path!("/settings") view=SettingsPage/>
                     <Route path=path!("/integrations") view=IntegrationsPage/>
+                    <Route path=path!("/workflows") view=WorkflowsPage/>
+                    <Route path=path!("/workflows/:id") view=WorkflowEditorPage/>
                     <Route path=path!("/admin") view=AdminPage/>
                 </Routes>
             </main>
@@ -157,6 +161,20 @@ fn Header() -> impl IntoView {
         <header class="header">
             <div class="header-left">
                 <a href="/" class="logo">"silver-telegram"</a>
+                <Suspense fallback=move || view! { <span></span> }>
+                    {move || {
+                        user.get().map(|result| {
+                            match result {
+                                Ok(Some(_)) => view! {
+                                    <nav class="main-nav">
+                                        <a href="/workflows">"Workflows"</a>
+                                    </nav>
+                                }.into_any(),
+                                _ => view! { <span></span> }.into_any(),
+                            }
+                        })
+                    }}
+                </Suspense>
             </div>
             <div class="header-right">
                 <Suspense fallback=move || view! { <span>"Loading..."</span> }>
@@ -381,370 +399,5 @@ fn TimezoneSelector(#[prop(optional)] current_timezone: Option<String>) -> impl 
                 }
             }).collect_view()}
         </select>
-    }
-}
-
-/// Integration info for display.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-pub struct IntegrationInfo {
-    pub id: String,
-    pub name: String,
-    pub integration_type: String,
-    pub status: String,
-}
-
-/// Server function to list user's integrations.
-#[server]
-pub async fn list_integrations() -> Result<Vec<IntegrationInfo>, ServerFnError> {
-    use crate::auth::db::SessionRepository;
-    use axum::Extension;
-    use axum_extra::extract::CookieJar;
-    use silver_telegram_platform_access::SessionId;
-    use sqlx::PgPool;
-
-    const SESSION_COOKIE: &str = "session";
-
-    // Extract the cookie jar
-    let jar: CookieJar = leptos_axum::extract().await?;
-
-    // Get database pool from request extension
-    let Extension(db_pool): Extension<PgPool> = leptos_axum::extract().await?;
-
-    // Verify authentication
-    let session_cookie = jar
-        .get(SESSION_COOKIE)
-        .ok_or_else(|| ServerFnError::new("Not authenticated"))?;
-
-    let session_id = SessionId::new(session_cookie.value().to_string());
-    let session_repo = SessionRepository::new(db_pool);
-    let session = session_repo
-        .find_by_id(&session_id)
-        .await
-        .map_err(|_| ServerFnError::new("Database error"))?
-        .ok_or_else(|| ServerFnError::new("Session not found"))?;
-
-    if session.is_expired() || !session.has_access() {
-        return Err(ServerFnError::new("Session expired"));
-    }
-
-    // Return empty list for now - integrations will be populated as they are added
-    // The integration system exists in lib/integration but needs database persistence
-    Ok(vec![])
-}
-
-/// Integrations page.
-#[component]
-fn IntegrationsPage() -> impl IntoView {
-    let user = Resource::new(|| (), |_| get_current_user());
-    let integrations = Resource::new(|| (), |_| list_integrations());
-
-    view! {
-        <div class="integrations-page">
-            <h1>"Integrations"</h1>
-            <Suspense fallback=move || view! { <p>"Loading..."</p> }>
-                {move || {
-                    user.get().map(|result| {
-                        match result {
-                            Ok(Some(_user_info)) => view! {
-                                <div class="integrations-content">
-                                    <p>"Connect external services to your assistant."</p>
-
-                                    <section class="integrations-list">
-                                        <h2>"Connected Services"</h2>
-                                        <Suspense fallback=move || view! { <p>"Loading integrations..."</p> }>
-                                            {move || {
-                                                integrations.get().map(|result| {
-                                                    match result {
-                                                        Ok(items) if items.is_empty() => view! {
-                                                            <p class="empty-state">"No integrations configured yet."</p>
-                                                        }.into_any(),
-                                                        Ok(items) => view! {
-                                                            <ul class="integration-items">
-                                                                {items.into_iter().map(|item| view! {
-                                                                    <li class="integration-item">
-                                                                        <span class="integration-name">{item.name}</span>
-                                                                        <span class="integration-type">{item.integration_type}</span>
-                                                                        <span class="integration-status">{item.status}</span>
-                                                                    </li>
-                                                                }).collect_view()}
-                                                            </ul>
-                                                        }.into_any(),
-                                                        Err(_) => view! {
-                                                            <p class="error">"Failed to load integrations."</p>
-                                                        }.into_any(),
-                                                    }
-                                                })
-                                            }}
-                                        </Suspense>
-                                    </section>
-
-                                    <section class="add-integration">
-                                        <h2>"Available Integration Types"</h2>
-                                        <ul class="integration-types">
-                                            <li>"Email (IMAP)"</li>
-                                            <li>"Gmail (OAuth)"</li>
-                                            <li>"Calendar (iCal feed)"</li>
-                                        </ul>
-                                        <p class="note">"Integration setup UI coming soon."</p>
-                                    </section>
-                                </div>
-                            }.into_any(),
-                            Ok(None) => view! {
-                                <div>
-                                    <p>"Please log in to manage integrations."</p>
-                                    <a href="/auth/login" rel="external">"Log in"</a>
-                                </div>
-                            }.into_any(),
-                            Err(_) => view! {
-                                <div>
-                                    <p>"Failed to load page. Please try again."</p>
-                                </div>
-                            }.into_any(),
-                        }
-                    })
-                }}
-            </Suspense>
-        </div>
-    }
-}
-
-/// Workflow info for admin display.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-pub struct WorkflowSummary {
-    pub id: String,
-    pub name: String,
-    pub owner_name: String,
-    pub owner_id: String,
-    pub enabled: bool,
-    pub last_run: Option<String>,
-}
-
-/// Server function to list all workflows (admin only).
-#[server]
-pub async fn list_all_workflows() -> Result<Vec<WorkflowSummary>, ServerFnError> {
-    use crate::auth::db::SessionRepository;
-    use axum::Extension;
-    use axum_extra::extract::CookieJar;
-    use silver_telegram_platform_access::SessionId;
-    use sqlx::PgPool;
-
-    const SESSION_COOKIE: &str = "session";
-
-    // Extract request data
-    let jar: CookieJar = leptos_axum::extract().await?;
-
-    // Get database pool from request extension
-    let Extension(db_pool): Extension<PgPool> = leptos_axum::extract().await?;
-
-    // Verify admin authentication
-    let session_cookie = jar
-        .get(SESSION_COOKIE)
-        .ok_or_else(|| ServerFnError::new("Not authenticated"))?;
-
-    let session_id = SessionId::new(session_cookie.value().to_string());
-    let session_repo = SessionRepository::new(db_pool);
-    let session = session_repo
-        .find_by_id(&session_id)
-        .await
-        .map_err(|_| ServerFnError::new("Database error"))?
-        .ok_or_else(|| ServerFnError::new("Session not found"))?;
-
-    if session.is_expired() || !session.has_access() {
-        return Err(ServerFnError::new("Session expired"));
-    }
-
-    if !session.is_admin() {
-        return Err(ServerFnError::new("Admin access required"));
-    }
-
-    // Return empty list for now - workflows will be populated as they are created
-    // The workflow system exists in lib/workflow but needs database persistence
-    Ok(vec![])
-}
-
-/// Server function to trigger a workflow (admin only).
-#[server]
-pub async fn trigger_workflow(workflow_id: String) -> Result<(), ServerFnError> {
-    use crate::auth::db::SessionRepository;
-    use axum::Extension;
-    use axum_extra::extract::CookieJar;
-    use silver_telegram_platform_access::SessionId;
-    use sqlx::PgPool;
-
-    const SESSION_COOKIE: &str = "session";
-
-    // Extract request data
-    let jar: CookieJar = leptos_axum::extract().await?;
-
-    // Get database pool from request extension
-    let Extension(db_pool): Extension<PgPool> = leptos_axum::extract().await?;
-
-    // Verify admin authentication
-    let session_cookie = jar
-        .get(SESSION_COOKIE)
-        .ok_or_else(|| ServerFnError::new("Not authenticated"))?;
-
-    let session_id = SessionId::new(session_cookie.value().to_string());
-    let session_repo = SessionRepository::new(db_pool);
-    let session = session_repo
-        .find_by_id(&session_id)
-        .await
-        .map_err(|_| ServerFnError::new("Database error"))?
-        .ok_or_else(|| ServerFnError::new("Session not found"))?;
-
-    if !session.is_admin() {
-        return Err(ServerFnError::new("Admin access required"));
-    }
-
-    // Log the admin action (workflow trigger will be implemented when workflow execution is added)
-    let _ = workflow_id; // Acknowledge the parameter
-    Ok(())
-}
-
-/// Server function to cancel a workflow run (admin only).
-#[server]
-pub async fn cancel_workflow(workflow_id: String) -> Result<(), ServerFnError> {
-    use crate::auth::db::SessionRepository;
-    use axum::Extension;
-    use axum_extra::extract::CookieJar;
-    use silver_telegram_platform_access::SessionId;
-    use sqlx::PgPool;
-
-    const SESSION_COOKIE: &str = "session";
-
-    // Extract request data
-    let jar: CookieJar = leptos_axum::extract().await?;
-
-    // Get database pool from request extension
-    let Extension(db_pool): Extension<PgPool> = leptos_axum::extract().await?;
-
-    // Verify admin authentication
-    let session_cookie = jar
-        .get(SESSION_COOKIE)
-        .ok_or_else(|| ServerFnError::new("Not authenticated"))?;
-
-    let session_id = SessionId::new(session_cookie.value().to_string());
-    let session_repo = SessionRepository::new(db_pool);
-    let session = session_repo
-        .find_by_id(&session_id)
-        .await
-        .map_err(|_| ServerFnError::new("Database error"))?
-        .ok_or_else(|| ServerFnError::new("Session not found"))?;
-
-    if !session.is_admin() {
-        return Err(ServerFnError::new("Admin access required"));
-    }
-
-    // Log the admin action (workflow cancel will be implemented when workflow execution is added)
-    let _ = workflow_id; // Acknowledge the parameter
-    Ok(())
-}
-
-/// Admin page (requires admin access).
-#[component]
-fn AdminPage() -> impl IntoView {
-    let user = Resource::new(|| (), |_| get_current_user());
-    let workflows = Resource::new(|| (), |_| list_all_workflows());
-
-    view! {
-        <div class="admin-page">
-            <h1>"Admin"</h1>
-            <Suspense fallback=move || view! { <p>"Loading..."</p> }>
-                {move || {
-                    user.get().map(|result| {
-                        match result {
-                            Ok(Some(user_info)) if user_info.is_admin => view! {
-                                <div class="admin-content">
-                                    <p>"Platform administration and oversight."</p>
-
-                                    <section class="admin-section">
-                                        <h2>"User Workflows"</h2>
-                                        <p>"Manage workflows across all users."</p>
-                                        <Suspense fallback=move || view! { <p>"Loading workflows..."</p> }>
-                                            {move || {
-                                                workflows.get().map(|result| {
-                                                    match result {
-                                                        Ok(items) if items.is_empty() => view! {
-                                                            <p class="empty-state">"No workflows configured yet."</p>
-                                                        }.into_any(),
-                                                        Ok(items) => view! {
-                                                            <table class="workflows-table">
-                                                                <thead>
-                                                                    <tr>
-                                                                        <th>"Workflow"</th>
-                                                                        <th>"Owner"</th>
-                                                                        <th>"Status"</th>
-                                                                        <th>"Last Run"</th>
-                                                                        <th>"Actions"</th>
-                                                                    </tr>
-                                                                </thead>
-                                                                <tbody>
-                                                                    {items.into_iter().map(|wf| {
-                                                                        let wf_id = wf.id.clone();
-                                                                        let wf_id2 = wf.id.clone();
-                                                                        view! {
-                                                                            <tr>
-                                                                                <td>{wf.name}</td>
-                                                                                <td>{wf.owner_name}</td>
-                                                                                <td>{if wf.enabled { "Enabled" } else { "Disabled" }}</td>
-                                                                                <td>{wf.last_run.unwrap_or_else(|| "Never".to_string())}</td>
-                                                                                <td class="workflow-actions">
-                                                                                    <button
-                                                                                        class="trigger-btn"
-                                                                                        on:click=move |_| {
-                                                                                            let id = wf_id.clone();
-                                                                                            spawn_local(async move {
-                                                                                                let _ = trigger_workflow(id).await;
-                                                                                            });
-                                                                                        }
-                                                                                    >"Trigger"</button>
-                                                                                    <button
-                                                                                        class="cancel-btn"
-                                                                                        on:click=move |_| {
-                                                                                            let id = wf_id2.clone();
-                                                                                            spawn_local(async move {
-                                                                                                let _ = cancel_workflow(id).await;
-                                                                                            });
-                                                                                        }
-                                                                                    >"Cancel"</button>
-                                                                                </td>
-                                                                            </tr>
-                                                                        }
-                                                                    }).collect_view()}
-                                                                </tbody>
-                                                            </table>
-                                                        }.into_any(),
-                                                        Err(_) => view! {
-                                                            <p class="error">"Failed to load workflows."</p>
-                                                        }.into_any(),
-                                                    }
-                                                })
-                                            }}
-                                        </Suspense>
-                                    </section>
-                                </div>
-                            }.into_any(),
-                            Ok(Some(_)) => view! {
-                                <div>
-                                    <p>"You do not have admin access."</p>
-                                    <a href="/">"Return to Home"</a>
-                                </div>
-                            }.into_any(),
-                            Ok(None) => view! {
-                                <div>
-                                    <p>"Please log in to access admin features."</p>
-                                    <a href="/auth/login" rel="external">"Log in"</a>
-                                </div>
-                            }.into_any(),
-                            Err(_) => view! {
-                                <div>
-                                    <p>"Failed to load page. Please try again."</p>
-                                </div>
-                            }.into_any(),
-                        }
-                    })
-                }}
-            </Suspense>
-        </div>
     }
 }

@@ -1,0 +1,19 @@
+[package]
+name = "silver-telegram-authz"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "SpiceDB authorization client for silver-telegram"
+
+[dependencies]
+silver-telegram-core = { workspace = true }
+spicedb-client = { workspace = true }
+spicedb-grpc = { workspace = true }
+tonic = { workspace = true }
+tokio-stream = { workspace = true }
+async-trait = { workspace = true }
+rootcause = { workspace = true }
+tracing = { workspace = true }
+tokio = { workspace = true }

@@ -1,0 +1,44 @@
+/**
+ * SpiceDB Authorization Schema for silver-telegram
+ *
+ * This schema implements relationship-based authorization following ADR-002.
+ * Resources don't have user_id columns; authorization flows through SpiceDB relationships.
+ */
+
+definition user {}
+
+/**
+ * Workflows are owned by users and can be viewed/edited/executed.
+ */
+definition workflow {
+    relation owner: user
+
+    permission view = owner
+    permission edit = owner
+    permission delete = owner
+    permission execute = owner
+}
+
+/**
+ * Integration accounts are owned by users.
+ * Future: can be shared with household groups.
+ */
+definition integration {
+    relation owner: user
+
+    permission view = owner
+    permission edit = owner
+    permission delete = owner
+    permission use = owner
+}
+
+/**
+ * Platform-level permissions for admin operations.
+ */
+definition platform {
+    relation admin: user
+    relation member: user
+
+    permission administer = admin
+    permission access = admin + member
+}
