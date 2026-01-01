@@ -1,0 +1,30 @@
+[package]
+name = "silver-telegram-platform-access"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Authentication and authorization for the silver-telegram platform"
+
+[dependencies]
+silver-telegram-core = { workspace = true }
+
+# Error handling
+rootcause = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Async
+async-trait = { workspace = true }
+tokio = { workspace = true }
+
+# Time
+chrono = { workspace = true }
+
+# Tracing
+tracing = { workspace = true }
+
+[dev-dependencies]

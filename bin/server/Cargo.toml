@@ -12,6 +12,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 silver-telegram-core.workspace = true
+silver-telegram-platform-access = { workspace = true, optional = true }
 
 # Web framework
 leptos = { workspace = true }
@@ -21,12 +22,35 @@ leptos_axum = { workspace = true, optional = true }
 
 # Server runtime
 axum = { workspace = true, optional = true }
+axum-extra = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true }
 tower = { workspace = true, optional = true }
 tower-http = { workspace = true, optional = true }
 
+# Authentication
+openidconnect = { workspace = true, optional = true }
+reqwest = { workspace = true, optional = true }
+
+# Database
+sqlx = { workspace = true, optional = true }
+
 # Serialization
 serde.workspace = true
+serde_json = { workspace = true, optional = true }
+
+# Configuration
+config = { workspace = true, optional = true }
+
+# Time
+chrono = { workspace = true, optional = true }
+time = { workspace = true, optional = true }
+
+# Async
+async-trait = { workspace = true, optional = true }
+
+# Utilities
+base64 = { workspace = true, optional = true }
+ulid = { workspace = true, optional = true }
 
 # Logging
 tracing = { workspace = true, optional = true }
@@ -35,21 +59,35 @@ tracing-subscriber = { workspace = true, optional = true }
 # WASM
 wasm-bindgen = { workspace = true, optional = true }
 console_error_panic_hook = { workspace = true, optional = true }
+getrandom = { workspace = true, optional = true }
 
 [features]
 hydrate = [
     "leptos/hydrate",
     "dep:console_error_panic_hook",
     "dep:wasm-bindgen",
+    "dep:getrandom",
 ]
 ssr = [
     "dep:axum",
+    "dep:axum-extra",
     "dep:tokio",
     "dep:tower",
     "dep:tower-http",
     "dep:leptos_axum",
     "dep:tracing",
     "dep:tracing-subscriber",
+    "dep:openidconnect",
+    "dep:reqwest",
+    "dep:silver-telegram-platform-access",
+    "dep:sqlx",
+    "dep:serde_json",
+    "dep:config",
+    "dep:chrono",
+    "dep:time",
+    "dep:async-trait",
+    "dep:base64",
+    "dep:ulid",
     "leptos/ssr",
     "leptos_meta/ssr",
     "leptos_router/ssr",
@@ -60,6 +98,7 @@ bin-target = "silver-telegram-server"
 output-name = "silver-telegram"
 site-root = "target/site"
 site-pkg-dir = "pkg"
+style-file = "style/main.css"
 site-addr = "127.0.0.1:3000"
 reload-port = 3001
 browserquery = "defaults"

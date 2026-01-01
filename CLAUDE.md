@@ -23,6 +23,23 @@ See `docs/PRD.md` for complete product requirements.
 - **Error Handling**: rootcause
 - **Database**: SQLite with SQLx (planned)
 
+## Build Prerequisites
+
+The following tools are required for full development:
+
+```bash
+# WASM target for client-side compilation
+rustup target add wasm32-unknown-unknown
+
+# Leptos build tool
+cargo install cargo-leptos
+
+# WASM bindgen CLI (must match wasm-bindgen crate version)
+cargo install wasm-bindgen-cli@0.2.106
+```
+
+These are automatically installed in Claude Code remote sessions via the SessionStart hook.
+
 ## Development Commands
 
 ### Starting Development Server
