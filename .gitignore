@@ -3,6 +3,9 @@
 debug/
 /target/
 
+# Environment files (contain secrets)
+.env
+
 # Database files
 *.db
 *.db-shm
