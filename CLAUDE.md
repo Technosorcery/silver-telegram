@@ -21,7 +21,7 @@ See `docs/PRD.md` for complete product requirements.
 - **Web Framework**: Leptos (full-stack SSR + WASM)
 - **Server**: Axum
 - **Error Handling**: rootcause
-- **Database**: SQLite with SQLx (planned)
+- **Database**: PostgreSQL with SQLx
 
 ## Build Prerequisites
 

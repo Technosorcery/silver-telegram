@@ -21,6 +21,67 @@ pub struct ServerConfig {
 
     /// OIDC authentication configuration.
     pub oidc: OidcConfig,
+
+    /// SpiceDB authorization configuration.
+    #[serde(default)]
+    pub spicedb: SpiceDbConfig,
+
+    /// Google OAuth configuration for Gmail integration.
+    #[serde(default)]
+    pub google: GoogleOAuthConfig,
+}
+
+/// Google OAuth configuration for Gmail integration.
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct GoogleOAuthConfig {
+    /// Google OAuth client ID.
+    #[serde(default)]
+    pub client_id: Option<String>,
+
+    /// Google OAuth client secret.
+    #[serde(default)]
+    pub client_secret: Option<String>,
+
+    /// Redirect URL for OAuth callback (e.g., "http://localhost:3000/auth/gmail/callback").
+    #[serde(default)]
+    pub redirect_url: Option<String>,
+}
+
+impl GoogleOAuthConfig {
+    /// Returns whether Google OAuth is configured.
+    #[must_use]
+    pub fn is_configured(&self) -> bool {
+        self.client_id.is_some() && self.client_secret.is_some() && self.redirect_url.is_some()
+    }
+}
+
+/// SpiceDB authorization configuration.
+#[derive(Debug, Clone, Deserialize)]
+pub struct SpiceDbConfig {
+    /// SpiceDB gRPC endpoint (e.g., "http://localhost:50051").
+    #[serde(default = "default_spicedb_endpoint")]
+    pub endpoint: String,
+
+    /// Preshared key for SpiceDB authentication.
+    #[serde(default = "default_spicedb_preshared_key")]
+    pub preshared_key: String,
+}
+
+fn default_spicedb_endpoint() -> String {
+    "http://localhost:50051".to_string()
+}
+
+fn default_spicedb_preshared_key() -> String {
+    "silver_dev_key".to_string()
+}
+
+impl Default for SpiceDbConfig {
+    fn default() -> Self {
+        Self {
+            endpoint: default_spicedb_endpoint(),
+            preshared_key: default_spicedb_preshared_key(),
+        }
+    }
 }
 
 /// Session-related configuration.

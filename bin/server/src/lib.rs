@@ -6,12 +6,24 @@
 #![allow(non_snake_case)]
 
 pub mod app;
+pub mod pages;
+pub mod types;
+pub mod user;
 
 #[cfg(feature = "ssr")]
 pub mod auth;
 
 #[cfg(feature = "ssr")]
 pub mod config;
+
+#[cfg(feature = "ssr")]
+pub mod db;
+
+#[cfg(feature = "ssr")]
+pub mod error;
+
+#[cfg(feature = "ssr")]
+pub mod server_helpers;
 
 #[cfg(feature = "hydrate")]
 #[wasm_bindgen::prelude::wasm_bindgen]

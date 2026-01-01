@@ -24,9 +24,12 @@
 //! - No `user_id` columns on resource tables - relationships live in SpiceDB
 
 pub mod db;
+pub mod gmail;
 pub mod middleware;
 pub mod oidc;
 pub mod routes;
+
+pub use gmail::{GmailOAuthClient, GmailOAuthState, gmail_callback, gmail_start};
 
 use crate::config::SessionConfig;
 use sqlx::PgPool;

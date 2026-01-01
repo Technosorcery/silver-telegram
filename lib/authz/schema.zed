@@ -1,0 +1,39 @@
+/** silver-telegram SpiceDB Schema
+ *
+ * This schema defines the authorization model for silver-telegram.
+ * Resources don't have user_id columns; authorization flows through SpiceDB relationships.
+ */
+
+definition user {}
+
+definition platform {
+    relation admin: user
+    relation member: user
+
+    // Admins can administer the platform
+    permission administer = admin
+
+    // Both admins and members can access the platform
+    permission access = admin + member
+}
+
+definition workflow {
+    relation owner: user
+    relation platform: platform
+
+    // Owner has full permissions
+    permission view = owner + platform->administer
+    permission edit = owner + platform->administer
+    permission delete = owner + platform->administer
+    permission execute = owner + platform->administer
+}
+
+definition integration {
+    relation owner: user
+
+    // Owner has full permissions
+    permission view = owner
+    permission edit = owner
+    permission delete = owner
+    permission use = owner
+}

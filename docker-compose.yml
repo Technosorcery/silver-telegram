@@ -1,0 +1,57 @@
+services:
+  spicedb-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: spicedb
+      POSTGRES_PASSWORD: spicedb_dev
+      POSTGRES_DB: spicedb
+    volumes:
+      - spicedb_postgres_data:/var/lib/postgresql/data
+    networks:
+      - spicedb-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U spicedb -d spicedb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  spicedb-migrate:
+    image: authzed/spicedb:latest
+    command: migrate head
+    environment:
+      SPICEDB_DATASTORE_ENGINE: postgres
+      SPICEDB_DATASTORE_CONN_URI: "postgres://spicedb:spicedb_dev@spicedb-postgres:5432/spicedb?sslmode=disable"
+    networks:
+      - spicedb-net
+    depends_on:
+      spicedb-postgres:
+        condition: service_healthy
+
+  spicedb:
+    image: authzed/spicedb:latest
+    command: serve
+    environment:
+      SPICEDB_DATASTORE_ENGINE: postgres
+      SPICEDB_DATASTORE_CONN_URI: "postgres://spicedb:spicedb_dev@spicedb-postgres:5432/spicedb?sslmode=disable"
+      SPICEDB_GRPC_PRESHARED_KEY: "silver_dev_key"
+      SPICEDB_HTTP_ENABLED: "true"
+    ports:
+      - "50051:50051"  # gRPC
+    networks:
+      - spicedb-net
+    depends_on:
+      spicedb-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "grpc_health_probe", "-addr=:50051"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+networks:
+  spicedb-net:
+    driver: bridge
+
+volumes:
+  spicedb_postgres_data:
