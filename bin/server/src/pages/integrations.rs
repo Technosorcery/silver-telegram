@@ -3,8 +3,9 @@
 mod server;
 
 pub use server::{
-    IntegrationConfigData, IntegrationInfo, create_integration, delete_integration,
-    get_integration_config, list_integrations, update_integration_config, update_integration_name,
+    IntegrationConfigData, IntegrationInfo, ModelInfo, create_integration, delete_integration,
+    discover_models, get_integration_config, list_integrations, list_openai_integrations,
+    test_openai_connection, update_integration_config, update_integration_name,
 };
 
 use crate::user::get_current_user;
@@ -27,6 +28,11 @@ pub fn IntegrationsPage() -> impl IntoView {
     let (create_username, set_create_username) = signal(String::new());
     let (create_password, set_create_password) = signal(String::new());
     let (create_url, set_create_url) = signal(String::new());
+    let (create_endpoint_url, set_create_endpoint_url) = signal(String::new());
+    let (create_api_key, set_create_api_key) = signal(String::new());
+    let (testing_connection, set_testing_connection) = signal(false);
+    let (connection_test_result, set_connection_test_result) =
+        signal(Option::<Result<(), String>>::None);
     let (creating, set_creating) = signal(false);
     let (create_error, set_create_error) = signal(Option::<String>::None);
 
@@ -39,6 +45,11 @@ pub fn IntegrationsPage() -> impl IntoView {
     let (edit_username, set_edit_username) = signal(String::new());
     let (edit_password, set_edit_password) = signal(String::new());
     let (edit_url, set_edit_url) = signal(String::new());
+    let (edit_endpoint_url, set_edit_endpoint_url) = signal(String::new());
+    let (edit_api_key, set_edit_api_key) = signal(String::new());
+    let (edit_testing_connection, set_edit_testing_connection) = signal(false);
+    let (edit_connection_test_result, set_edit_connection_test_result) =
+        signal(Option::<Result<(), String>>::None);
     let (saving, set_saving) = signal(false);
     let (loading_config, set_loading_config) = signal(false);
 
@@ -67,6 +78,16 @@ pub fn IntegrationsPage() -> impl IntoView {
             }
             "gmail" => serde_json::json!({"oauth_pending": true}),
             "calendar_feed" => serde_json::json!({"url": create_url.get()}),
+            "openai_compatible" => {
+                let mut config = serde_json::json!({
+                    "endpoint_url": create_endpoint_url.get()
+                });
+                let api_key = create_api_key.get();
+                if !api_key.is_empty() {
+                    config["api_key"] = serde_json::json!(api_key);
+                }
+                config
+            }
             _ => serde_json::json!({}),
         };
 
@@ -86,6 +107,9 @@ pub fn IntegrationsPage() -> impl IntoView {
                     set_create_username.set(String::new());
                     set_create_password.set(String::new());
                     set_create_url.set(String::new());
+                    set_create_endpoint_url.set(String::new());
+                    set_create_api_key.set(String::new());
+                    set_connection_test_result.set(None);
 
                     // For Gmail, redirect to OAuth flow
                     if is_gmail {
@@ -138,6 +162,16 @@ pub fn IntegrationsPage() -> impl IntoView {
                 })
             }
             "calendar_feed" => serde_json::json!({"url": edit_url.get()}),
+            "openai_compatible" => {
+                let mut config = serde_json::json!({
+                    "endpoint_url": edit_endpoint_url.get()
+                });
+                let api_key = edit_api_key.get();
+                if !api_key.is_empty() {
+                    config["api_key"] = serde_json::json!(api_key);
+                }
+                config
+            }
             _ => serde_json::json!({}),
         };
         let config_str = config.to_string();
@@ -235,6 +269,7 @@ pub fn IntegrationsPage() -> impl IntoView {
                                                         {move || {
                                                             let filter = create_type_filter.get().to_lowercase();
                                                             let types = vec![
+                                                                ("openai_compatible", "LLM Provider (OpenAI-compatible)", "Connect to Ollama, OpenAI, or any OpenAI-compatible API"),
                                                                 ("imap", "Email (IMAP)", "Connect via IMAP to read and send email"),
                                                                 ("gmail", "Gmail (OAuth)", "Connect Gmail with secure OAuth authentication"),
                                                                 ("calendar_feed", "Calendar Feed", "Subscribe to iCal/CalDAV calendar feeds"),
@@ -333,6 +368,77 @@ pub fn IntegrationsPage() -> impl IntoView {
                                                             />
                                                         </div>
                                                     </div>
+                                                })}
+
+                                                {move || (create_type.get() == "openai_compatible").then(|| {
+                                                    let on_test_connection = move |_| {
+                                                        let endpoint = create_endpoint_url.get();
+                                                        let api_key = create_api_key.get();
+                                                        if endpoint.is_empty() {
+                                                            set_connection_test_result.set(Some(Err("Endpoint URL is required".to_string())));
+                                                            return;
+                                                        }
+                                                        set_testing_connection.set(true);
+                                                        set_connection_test_result.set(None);
+                                                        let api_key_opt = if api_key.is_empty() { None } else { Some(api_key) };
+                                                        spawn_local(async move {
+                                                            match test_openai_connection(endpoint, api_key_opt).await {
+                                                                Ok(_) => {
+                                                                    set_connection_test_result.set(Some(Ok(())));
+                                                                }
+                                                                Err(e) => {
+                                                                    set_connection_test_result.set(Some(Err(e.to_string())));
+                                                                }
+                                                            }
+                                                            set_testing_connection.set(false);
+                                                        });
+                                                    };
+                                                    view! {
+                                                        <div class="type-fields">
+                                                            <div class="form-group">
+                                                                <label>"Endpoint URL" <span class="required">"*"</span></label>
+                                                                <input
+                                                                    type="url"
+                                                                    placeholder="http://localhost:11434 (Ollama) or https://api.openai.com"
+                                                                    prop:value=move || create_endpoint_url.get()
+                                                                    on:input=move |ev| {
+                                                                        set_create_endpoint_url.set(event_target_value(&ev));
+                                                                        set_connection_test_result.set(None);
+                                                                    }
+                                                                />
+                                                                <p class="help">"Base URL for the OpenAI-compatible API"</p>
+                                                            </div>
+                                                            <div class="form-group">
+                                                                <label>"API Key" <span class="optional">"(optional)"</span></label>
+                                                                <input
+                                                                    type="password"
+                                                                    placeholder="sk-... or leave empty for local providers"
+                                                                    prop:value=move || create_api_key.get()
+                                                                    on:input=move |ev| {
+                                                                        set_create_api_key.set(event_target_value(&ev));
+                                                                        set_connection_test_result.set(None);
+                                                                    }
+                                                                />
+                                                                <p class="help">"Required for cloud providers like OpenAI, optional for local providers like Ollama"</p>
+                                                            </div>
+                                                            <div class="form-group">
+                                                                <button
+                                                                    class="secondary-btn"
+                                                                    type="button"
+                                                                    on:click=on_test_connection
+                                                                    disabled=move || testing_connection.get() || create_endpoint_url.get().is_empty()
+                                                                >
+                                                                    {move || if testing_connection.get() { "Testing..." } else { "Test Connection" }}
+                                                                </button>
+                                                                {move || connection_test_result.get().map(|result| {
+                                                                    match result {
+                                                                        Ok(()) => view! { <span class="success">" Connected successfully!"</span> }.into_any(),
+                                                                        Err(e) => view! { <span class="error">{format!(" {}", e)}</span> }.into_any()
+                                                                    }
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    }
                                                 })}
 
                                                 {move || create_error.get().map(|e| view! {
@@ -466,6 +572,80 @@ pub fn IntegrationsPage() -> impl IntoView {
                                                             } else {
                                                                 view! { <span></span> }.into_any()
                                                             }}
+
+                                                            // OpenAI-compatible fields
+                                                            {move || if edit_type.get() == "openai_compatible" {
+                                                                let on_test_edit_connection = move |_| {
+                                                                    let endpoint = edit_endpoint_url.get();
+                                                                    let api_key = edit_api_key.get();
+                                                                    if endpoint.is_empty() {
+                                                                        set_edit_connection_test_result.set(Some(Err("Endpoint URL is required".to_string())));
+                                                                        return;
+                                                                    }
+                                                                    set_edit_testing_connection.set(true);
+                                                                    set_edit_connection_test_result.set(None);
+                                                                    let api_key_opt = if api_key.is_empty() { None } else { Some(api_key) };
+                                                                    spawn_local(async move {
+                                                                        match test_openai_connection(endpoint, api_key_opt).await {
+                                                                            Ok(_) => {
+                                                                                set_edit_connection_test_result.set(Some(Ok(())));
+                                                                            }
+                                                                            Err(e) => {
+                                                                                set_edit_connection_test_result.set(Some(Err(e.to_string())));
+                                                                            }
+                                                                        }
+                                                                        set_edit_testing_connection.set(false);
+                                                                    });
+                                                                };
+                                                                view! {
+                                                                    <div>
+                                                                        <div class="form-group">
+                                                                            <label>"Endpoint URL"</label>
+                                                                            <input
+                                                                                type="url"
+                                                                                placeholder="http://localhost:11434"
+                                                                                prop:value=move || edit_endpoint_url.get()
+                                                                                on:input=move |ev| {
+                                                                                    set_edit_endpoint_url.set(event_target_value(&ev));
+                                                                                    set_edit_connection_test_result.set(None);
+                                                                                }
+                                                                            />
+                                                                            <p class="help">"Base URL for the OpenAI-compatible API"</p>
+                                                                        </div>
+                                                                        <div class="form-group">
+                                                                            <label>"API Key"</label>
+                                                                            <input
+                                                                                type="password"
+                                                                                placeholder="Leave blank to keep existing"
+                                                                                prop:value=move || edit_api_key.get()
+                                                                                on:input=move |ev| {
+                                                                                    set_edit_api_key.set(event_target_value(&ev));
+                                                                                    set_edit_connection_test_result.set(None);
+                                                                                }
+                                                                            />
+                                                                            <p class="help">"Optional - required for cloud providers, leave empty for local providers"</p>
+                                                                        </div>
+                                                                        <div class="form-group">
+                                                                            <button
+                                                                                class="secondary-btn"
+                                                                                type="button"
+                                                                                on:click=on_test_edit_connection
+                                                                                disabled=move || edit_testing_connection.get() || edit_endpoint_url.get().is_empty()
+                                                                            >
+                                                                                {move || if edit_testing_connection.get() { "Testing..." } else { "Test Connection" }}
+                                                                            </button>
+                                                                            {move || edit_connection_test_result.get().map(|result| {
+                                                                                match result {
+                                                                                    Ok(()) => view! { <span class="success">" Connected successfully!"</span> }.into_any(),
+                                                                                    Err(e) => view! { <span class="error">{format!(" {}", e)}</span> }.into_any()
+                                                                                }
+                                                                            })}
+                                                                        </div>
+                                                                    </div>
+                                                                }.into_any()
+                                                            } else {
+                                                                view! { <span></span> }.into_any()
+                                                            }}
                                                         </div>
                                                     }.into_any()
                                                 }}
@@ -571,6 +751,7 @@ pub fn IntegrationsPage() -> impl IntoView {
                                                                             "imap" => "Email (IMAP)".to_string(),
                                                                             "gmail" => "Gmail".to_string(),
                                                                             "calendar_feed" => "Calendar Feed".to_string(),
+                                                                            "openai_compatible" => "LLM Provider".to_string(),
                                                                             other => other.to_string()
                                                                         };
                                                                         let status_class = format!("status-{}", item.status);
@@ -596,6 +777,7 @@ pub fn IntegrationsPage() -> impl IntoView {
                                                                                             set_edit_name.set(item_name.clone());
                                                                                             set_edit_type.set(item_type.clone());
                                                                                             set_editing_id.set(Some(item_id.clone()));
+                                                                                            set_edit_connection_test_result.set(None); // Reset test result
                                                                                             // Load current config
                                                                                             let id = item_id_for_edit.clone();
                                                                                             set_loading_config.set(true);
@@ -606,6 +788,8 @@ pub fn IntegrationsPage() -> impl IntoView {
                                                                                                     set_edit_username.set(config.username.unwrap_or_default());
                                                                                                     set_edit_password.set(String::new()); // Don't show existing password
                                                                                                     set_edit_url.set(config.url.unwrap_or_default());
+                                                                                                    set_edit_endpoint_url.set(config.endpoint_url.unwrap_or_default());
+                                                                                                    set_edit_api_key.set(String::new()); // Don't show existing API key
                                                                                                 }
                                                                                                 set_loading_config.set(false);
                                                                                             });

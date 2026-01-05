@@ -427,7 +427,8 @@ mod tests {
     #[test]
     fn validate_detects_missing_required_input() {
         let mut graph = WorkflowGraph::new();
-        // Classify node has a required 'content' input
+        // Classify node has required 'model' and 'content' inputs
+        // (AI nodes require a model input port)
         let classify = create_classify_node("Classifier");
         graph.add_node(classify);
 
@@ -435,7 +436,8 @@ mod tests {
         assert!(result.is_err());
         match result.unwrap_err() {
             GraphError::RequiredInputMissing { port_name, .. } => {
-                assert_eq!(port_name, "content");
+                // 'model' is checked first since it's the first required input
+                assert_eq!(port_name, "model");
             }
             _ => panic!("unexpected error type"),
         }

@@ -60,6 +60,8 @@ pub enum NodeCategory {
     Memory,
     /// Terminal actions (Notify, Log, HTTP Response).
     Output,
+    /// Configuration nodes (model selection, etc.).
+    Configuration,
 }
 
 /// Configuration for trigger nodes.
@@ -249,6 +251,22 @@ pub enum LogLevel {
     Error,
 }
 
+/// Configuration for configuration nodes.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ConfigurationNodeConfig {
+    /// OpenAI-compatible model reference.
+    ///
+    /// Specifies which OpenAI-compatible integration and model to use
+    /// for connected AI nodes.
+    OpenAiModel {
+        /// The integration account ID for the OpenAI-compatible provider.
+        integration_id: String,
+        /// The model ID (e.g., "gpt-4", "llama2").
+        model_id: String,
+    },
+}
+
 /// Configuration for a node, varying by category.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "category", rename_all = "snake_case")]
@@ -267,6 +285,8 @@ pub enum NodeConfig {
     Memory(MemoryNodeConfig),
     /// Output node configuration.
     Output(OutputNodeConfig),
+    /// Configuration node configuration.
+    Configuration(ConfigurationNodeConfig),
 }
 
 impl NodeConfig {
@@ -281,6 +301,7 @@ impl NodeConfig {
             Self::ControlFlow(_) => NodeCategory::ControlFlow,
             Self::Memory(_) => NodeCategory::Memory,
             Self::Output(_) => NodeCategory::Output,
+            Self::Configuration(_) => NodeCategory::Configuration,
         }
     }
 }
@@ -387,59 +408,86 @@ impl Node {
                 // Triggers have no inputs, one output
                 NodePorts::outputs_only(vec![OutputPort::new("output", PortSchema::any())])
             }
-            NodeConfig::AiLayer(ai_config) => match ai_config {
-                AiLayerNodeConfig::LlmCall { output_schema, .. } => NodePorts::new(
-                    vec![InputPort::required("input", PortSchema::any())],
-                    vec![OutputPort::new(
-                        "output",
-                        output_schema.clone().unwrap_or_else(PortSchema::any),
-                    )],
-                ),
-                AiLayerNodeConfig::Coordinate { .. } => NodePorts::new(
-                    vec![InputPort::required("context", PortSchema::any())],
-                    vec![OutputPort::new("result", PortSchema::any())],
-                ),
-                AiLayerNodeConfig::Classify { .. } => NodePorts::new(
-                    vec![InputPort::required("content", PortSchema::any())],
-                    vec![OutputPort::new(
-                        "classification",
-                        PortSchema::from_json(serde_json::json!({
-                            "type": "object",
-                            "properties": {
-                                "category": { "type": "string" },
-                                "confidence": { "type": "number" }
-                            }
-                        })),
-                    )],
-                ),
-                AiLayerNodeConfig::Extract { output_schema } => NodePorts::new(
-                    vec![InputPort::required("content", PortSchema::any())],
-                    vec![OutputPort::new("extracted", output_schema.clone())],
-                ),
-                AiLayerNodeConfig::Generate { .. } => NodePorts::new(
-                    vec![InputPort::required("context", PortSchema::any())],
-                    vec![OutputPort::new("generated", PortSchema::string())],
-                ),
-                AiLayerNodeConfig::Summarize { .. } => NodePorts::new(
-                    vec![InputPort::required("content", PortSchema::any())],
-                    vec![OutputPort::new("summary", PortSchema::string())],
-                ),
-                AiLayerNodeConfig::Score { .. } => NodePorts::new(
-                    vec![InputPort::required("content", PortSchema::any())],
-                    vec![OutputPort::new("score", PortSchema::number())],
-                ),
-                AiLayerNodeConfig::Deduplicate { .. } => NodePorts::new(
-                    vec![
-                        InputPort::required("item", PortSchema::any()),
-                        InputPort::required("recent_items", PortSchema::array()),
-                    ],
-                    vec![OutputPort::new("is_duplicate", PortSchema::boolean())],
-                ),
-                AiLayerNodeConfig::Decide { .. } => NodePorts::new(
-                    vec![InputPort::required("context", PortSchema::any())],
-                    vec![OutputPort::new("decision", PortSchema::string())],
-                ),
-            },
+            NodeConfig::AiLayer(ai_config) => {
+                // All AI nodes have a required model input port
+                let model_input = InputPort::required("model", PortSchema::model_reference());
+
+                match ai_config {
+                    AiLayerNodeConfig::LlmCall { output_schema, .. } => NodePorts::new(
+                        vec![model_input, InputPort::required("input", PortSchema::any())],
+                        vec![OutputPort::new(
+                            "output",
+                            output_schema.clone().unwrap_or_else(PortSchema::any),
+                        )],
+                    ),
+                    AiLayerNodeConfig::Coordinate { .. } => NodePorts::new(
+                        vec![
+                            model_input,
+                            InputPort::required("context", PortSchema::any()),
+                        ],
+                        vec![OutputPort::new("result", PortSchema::any())],
+                    ),
+                    AiLayerNodeConfig::Classify { .. } => NodePorts::new(
+                        vec![
+                            model_input,
+                            InputPort::required("content", PortSchema::any()),
+                        ],
+                        vec![OutputPort::new(
+                            "classification",
+                            PortSchema::from_json(serde_json::json!({
+                                "type": "object",
+                                "properties": {
+                                    "category": { "type": "string" },
+                                    "confidence": { "type": "number" }
+                                }
+                            })),
+                        )],
+                    ),
+                    AiLayerNodeConfig::Extract { output_schema } => NodePorts::new(
+                        vec![
+                            model_input,
+                            InputPort::required("content", PortSchema::any()),
+                        ],
+                        vec![OutputPort::new("extracted", output_schema.clone())],
+                    ),
+                    AiLayerNodeConfig::Generate { .. } => NodePorts::new(
+                        vec![
+                            model_input,
+                            InputPort::required("context", PortSchema::any()),
+                        ],
+                        vec![OutputPort::new("generated", PortSchema::string())],
+                    ),
+                    AiLayerNodeConfig::Summarize { .. } => NodePorts::new(
+                        vec![
+                            model_input,
+                            InputPort::required("content", PortSchema::any()),
+                        ],
+                        vec![OutputPort::new("summary", PortSchema::string())],
+                    ),
+                    AiLayerNodeConfig::Score { .. } => NodePorts::new(
+                        vec![
+                            model_input,
+                            InputPort::required("content", PortSchema::any()),
+                        ],
+                        vec![OutputPort::new("score", PortSchema::number())],
+                    ),
+                    AiLayerNodeConfig::Deduplicate { .. } => NodePorts::new(
+                        vec![
+                            model_input,
+                            InputPort::required("item", PortSchema::any()),
+                            InputPort::required("recent_items", PortSchema::array()),
+                        ],
+                        vec![OutputPort::new("is_duplicate", PortSchema::boolean())],
+                    ),
+                    AiLayerNodeConfig::Decide { .. } => NodePorts::new(
+                        vec![
+                            model_input,
+                            InputPort::required("context", PortSchema::any()),
+                        ],
+                        vec![OutputPort::new("decision", PortSchema::string())],
+                    ),
+                }
+            }
             NodeConfig::Integration(_) => NodePorts::new(
                 vec![InputPort::optional("input", PortSchema::any())],
                 vec![OutputPort::new("output", PortSchema::any())],
@@ -484,6 +532,15 @@ impl Node {
             NodeConfig::Output(_) => {
                 NodePorts::inputs_only(vec![InputPort::required("input", PortSchema::any())])
             }
+            NodeConfig::Configuration(config_type) => match config_type {
+                ConfigurationNodeConfig::OpenAiModel { .. } => {
+                    // OpenAIModel nodes have no inputs, one model output
+                    NodePorts::outputs_only(vec![OutputPort::new(
+                        "model",
+                        PortSchema::model_reference(),
+                    )])
+                }
+            },
         }
     }
 }
@@ -521,7 +578,10 @@ mod tests {
                 categories: vec!["spam".to_string(), "important".to_string()],
             }),
         );
-        assert_eq!(node.inputs.len(), 1);
+        // AI nodes have 2 inputs: model + content
+        assert_eq!(node.inputs.len(), 2);
+        assert_eq!(node.inputs[0].name, "model");
+        assert_eq!(node.inputs[1].name, "content");
         assert_eq!(node.outputs.len(), 1);
         assert_eq!(node.outputs[0].name, "classification");
     }
@@ -560,5 +620,59 @@ mod tests {
         let json = serde_json::to_string(&node).expect("serialize");
         let parsed: Node = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(node.name, parsed.name);
+    }
+
+    #[test]
+    fn openai_model_node_has_model_output() {
+        let node = Node::new(
+            "My Model",
+            NodeConfig::Configuration(ConfigurationNodeConfig::OpenAiModel {
+                integration_id: "int_123".to_string(),
+                model_id: "gpt-4".to_string(),
+            }),
+        );
+        // OpenAIModel node has no inputs, one model output
+        assert_eq!(node.inputs.len(), 0);
+        assert_eq!(node.outputs.len(), 1);
+        assert_eq!(node.outputs[0].name, "model");
+        // Output should be model_reference type
+        assert!(node.outputs[0].schema.is_model_reference());
+    }
+
+    #[test]
+    fn openai_model_node_is_configuration_category() {
+        let node = Node::new(
+            "My Model",
+            NodeConfig::Configuration(ConfigurationNodeConfig::OpenAiModel {
+                integration_id: "int_123".to_string(),
+                model_id: "gpt-4".to_string(),
+            }),
+        );
+        assert_eq!(node.config.category(), NodeCategory::Configuration);
+    }
+
+    #[test]
+    fn ai_nodes_have_model_input_port() {
+        // Test LlmCall node
+        let llm_node = Node::new(
+            "LLM",
+            NodeConfig::AiLayer(AiLayerNodeConfig::LlmCall {
+                prompt: "Test".to_string(),
+                output_schema: None,
+            }),
+        );
+        assert_eq!(llm_node.inputs[0].name, "model");
+        assert!(llm_node.inputs[0].required);
+        assert!(llm_node.inputs[0].schema.is_model_reference());
+
+        // Test Generate node
+        let gen_node = Node::new(
+            "Gen",
+            NodeConfig::AiLayer(AiLayerNodeConfig::Generate {
+                instructions: "Test".to_string(),
+            }),
+        );
+        assert_eq!(gen_node.inputs[0].name, "model");
+        assert!(gen_node.inputs[0].required);
     }
 }
