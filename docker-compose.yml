@@ -1,4 +1,20 @@
 services:
+  nats:
+    image: nats:2.10-alpine
+    command: ["--js", "--sd", "/data"]
+    ports:
+      - "4222:4222"   # Client connections
+      - "8222:8222"   # HTTP monitoring
+    volumes:
+      - nats_data:/data
+    networks:
+      - app-net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8222/healthz"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   spicedb-postgres:
     image: postgres:16-alpine
     environment:
@@ -50,8 +66,11 @@ services:
       start_period: 10s
 
 networks:
+  app-net:
+    driver: bridge
   spicedb-net:
     driver: bridge
 
 volumes:
+  nats_data:
   spicedb_postgres_data:
