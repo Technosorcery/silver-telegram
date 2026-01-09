@@ -68,6 +68,34 @@ impl PortSchema {
         }
     }
 
+    /// Creates a schema for a model reference type.
+    ///
+    /// This schema represents a reference to an LLM model, containing
+    /// the integration ID and model ID needed to make LLM API calls.
+    #[must_use]
+    pub fn model_reference() -> Self {
+        Self {
+            schema: serde_json::json!({
+                "type": "object",
+                "$model_reference": true,
+                "properties": {
+                    "integration_id": { "type": "string" },
+                    "model_id": { "type": "string" }
+                },
+                "required": ["integration_id", "model_id"]
+            }),
+        }
+    }
+
+    /// Returns true if this schema represents a model reference.
+    #[must_use]
+    pub fn is_model_reference(&self) -> bool {
+        self.schema
+            .get("$model_reference")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
+    }
+
     /// Creates a schema from a raw JSON value.
     #[must_use]
     pub fn from_json(schema: JsonValue) -> Self {
@@ -83,6 +111,14 @@ impl PortSchema {
         // Empty schema (any) is compatible with everything
         if self.schema == serde_json::json!({}) || other.schema == serde_json::json!({}) {
             return true;
+        }
+
+        // Model references must match on both sides
+        if self.is_model_reference() && other.is_model_reference() {
+            return true;
+        }
+        if self.is_model_reference() != other.is_model_reference() {
+            return false;
         }
 
         // Simple type equality check for basic types
@@ -208,5 +244,38 @@ mod tests {
         let json = serde_json::to_string(&schema).expect("serialize");
         let parsed: PortSchema = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(schema, parsed);
+    }
+
+    #[test]
+    fn model_reference_schema_is_valid() {
+        let schema = PortSchema::model_reference();
+        assert!(schema.is_model_reference());
+    }
+
+    #[test]
+    fn model_reference_compatible_with_itself() {
+        let model1 = PortSchema::model_reference();
+        let model2 = PortSchema::model_reference();
+        assert!(model1.is_compatible_with(&model2));
+    }
+
+    #[test]
+    fn model_reference_not_compatible_with_other_types() {
+        let model = PortSchema::model_reference();
+        let string = PortSchema::string();
+        let object = PortSchema::object();
+
+        assert!(!model.is_compatible_with(&string));
+        assert!(!string.is_compatible_with(&model));
+        assert!(!model.is_compatible_with(&object));
+    }
+
+    #[test]
+    fn model_reference_compatible_with_any() {
+        let model = PortSchema::model_reference();
+        let any = PortSchema::any();
+
+        assert!(model.is_compatible_with(&any));
+        assert!(any.is_compatible_with(&model));
     }
 }

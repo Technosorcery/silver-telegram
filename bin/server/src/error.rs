@@ -247,3 +247,77 @@ impl UserError {
         }
     }
 }
+
+/// Model discovery-related errors.
+#[derive(Debug)]
+pub enum ModelDiscoveryError {
+    /// Integration was not found.
+    IntegrationNotFound { id: String },
+    /// Integration is not an OpenAI-compatible type.
+    InvalidIntegrationType { id: String, actual_type: String },
+    /// Failed to connect to the endpoint.
+    ConnectionFailed { endpoint: String, reason: String },
+    /// Failed to parse the model list response.
+    ParseError { reason: String },
+    /// Request timed out.
+    Timeout { endpoint: String },
+    /// Database error while fetching integration config.
+    DatabaseError { details: String },
+    /// Access denied to integration.
+    AccessDenied { id: String },
+}
+
+impl fmt::Display for ModelDiscoveryError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::IntegrationNotFound { id } => {
+                write!(f, "integration '{}' not found", id)
+            }
+            Self::InvalidIntegrationType { id, actual_type } => {
+                write!(
+                    f,
+                    "integration '{}' is type '{}', expected 'openai_compatible'",
+                    id, actual_type
+                )
+            }
+            Self::ConnectionFailed { endpoint, reason } => {
+                write!(f, "failed to connect to '{}': {}", endpoint, reason)
+            }
+            Self::ParseError { reason } => {
+                write!(f, "failed to parse model list: {}", reason)
+            }
+            Self::Timeout { endpoint } => {
+                write!(f, "request to '{}' timed out", endpoint)
+            }
+            Self::DatabaseError { details } => {
+                write!(f, "database error: {}", details)
+            }
+            Self::AccessDenied { id } => {
+                write!(f, "access denied to integration '{}'", id)
+            }
+        }
+    }
+}
+
+impl ModelDiscoveryError {
+    /// Convert to a user-safe ServerFnError.
+    pub fn into_server_error(self) -> ServerFnError {
+        match &self {
+            ModelDiscoveryError::IntegrationNotFound { .. } => {
+                ServerFnError::new("Integration not found")
+            }
+            ModelDiscoveryError::InvalidIntegrationType { .. } => {
+                ServerFnError::new("Integration is not an OpenAI-compatible provider")
+            }
+            ModelDiscoveryError::ConnectionFailed { reason, .. } => {
+                ServerFnError::new(format!("Connection failed: {}", reason))
+            }
+            ModelDiscoveryError::ParseError { reason } => {
+                ServerFnError::new(format!("Failed to parse models: {}", reason))
+            }
+            ModelDiscoveryError::Timeout { .. } => ServerFnError::new("Request timed out"),
+            ModelDiscoveryError::DatabaseError { .. } => ServerFnError::new("Database error"),
+            ModelDiscoveryError::AccessDenied { .. } => ServerFnError::new("Access denied"),
+        }
+    }
+}

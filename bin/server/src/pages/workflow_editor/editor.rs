@@ -1,7 +1,7 @@
 //! Editor tab content with visual node canvas and configuration panel.
 
 use super::graph::{WorkflowEdge, WorkflowGraph, WorkflowNode};
-use crate::pages::integrations::IntegrationInfo;
+use crate::pages::integrations::{IntegrationInfo, ModelInfo, discover_models};
 use leptos::prelude::*;
 
 /// Node dimensions for layout calculations.
@@ -29,6 +29,7 @@ pub fn EditorTabContent(
         let id = format!("node_{}", ulid::Ulid::new());
         let label = match node_type {
             "trigger" => "Schedule Trigger",
+            "model" => "Model",
             "ai" => "AI Node",
             "tool" => "Tool Node",
             "data" => "Data Injection",
@@ -55,6 +56,7 @@ pub fn EditorTabContent(
             <div class="node-toolbar">
                 <span class="toolbar-label">"Add Node:"</span>
                 <button class="toolbar-btn trigger" on:click=move |_| add_node("trigger")>"Trigger"</button>
+                <button class="toolbar-btn model" on:click=move |_| add_node("model")>"Model"</button>
                 <button class="toolbar-btn ai" on:click=move |_| add_node("ai")>"AI"</button>
                 <button class="toolbar-btn tool" on:click=move |_| add_node("tool")>"Tool"</button>
                 <button class="toolbar-btn data" on:click=move |_| add_node("data")>"Data"</button>
@@ -418,6 +420,7 @@ fn NodeConfigPanel(
                     Some(node) => {
                         let node_id = node.id.clone();
                         let node_id_trigger = node.id.clone();
+                        let node_id_model = node.id.clone();
                         let node_id_ai = node.id.clone();
                         let node_id_tool = node.id.clone();
                         let node_id_tool_int = node.id.clone();
@@ -426,6 +429,7 @@ fn NodeConfigPanel(
                         let label = node.label.clone();
                         let config = node.config.clone();
                         let config_for_tool = node.config.clone();
+                        let config_for_model = node.config.clone();
 
                         view! {
                             <div class="config-content">
@@ -622,6 +626,179 @@ fn NodeConfigPanel(
                                                     </Suspense>
                                                 </div>
                                                 <p class="help">"Injects entire data source content into connected AI nodes."</p>
+                                            </div>
+                                        }.into_any()
+                                    },
+                                    "model" => {
+                                        let current_integration = serde_json::from_str::<serde_json::Value>(&config_for_model)
+                                            .ok()
+                                            .and_then(|v: serde_json::Value| v.get("integration_id").and_then(|i| i.as_str()).map(|s| s.to_string()))
+                                            .unwrap_or_default();
+                                        let current_model = serde_json::from_str::<serde_json::Value>(&config_for_model)
+                                            .ok()
+                                            .and_then(|v: serde_json::Value| v.get("model_id").and_then(|m| m.as_str()).map(|s| s.to_string()))
+                                            .unwrap_or_default();
+                                        // Signal to track selected integration for model discovery
+                                        let (selected_integration, set_selected_integration) = signal(current_integration.clone());
+                                        // Signal to trigger retry (increment to refetch)
+                                        let (retry_count, set_retry_count) = signal(0u32);
+                                        // Resource to discover models when integration changes (or retry triggered)
+                                        let discovered_models: Resource<Result<Vec<ModelInfo>, String>> = Resource::new(
+                                            move || (selected_integration.get(), retry_count.get()),
+                                            |(int_id, _retry)| async move {
+                                                if int_id.is_empty() {
+                                                    return Ok(Vec::new());
+                                                }
+                                                discover_models(int_id)
+                                                    .await
+                                                    .map_err(|e| e.to_string())
+                                            }
+                                        );
+                                        let current_model_for_select = current_model.clone();
+                                        let node_id_model_for_select = node_id_model.clone();
+                                        view! {
+                                            <div class="type-config">
+                                                <div class="form-group">
+                                                    <label>"LLM Provider"</label>
+                                                    <Suspense fallback=move || view! { <select disabled=true><option>"Loading..."</option></select> }>
+                                                        {
+                                                            let nid = node_id_model.clone();
+                                                            let curr_model = current_model.clone();
+                                                            move || {
+                                                                let integrations = available_integrations.get().unwrap_or_default();
+                                                                // Filter to only openai_compatible integrations
+                                                                let openai_integrations: Vec<_> = integrations.into_iter()
+                                                                    .filter(|i| i.integration_type == "openai_compatible")
+                                                                    .collect();
+                                                                let current_id = current_integration.clone();
+                                                                let model_val = curr_model.clone();
+                                                                let node_id_for_int = nid.clone();
+                                                                view! {
+                                                                    <select on:change=move |ev| {
+                                                                        let int_id = event_target_value(&ev);
+                                                                        // Update signal to trigger model discovery
+                                                                        set_selected_integration.set(int_id.clone());
+                                                                        let cfg = serde_json::json!({
+                                                                            "integration_id": int_id,
+                                                                            "model_id": model_val.clone()
+                                                                        }).to_string();
+                                                                        update_node_config(node_id_for_int.clone(), cfg);
+                                                                    }>
+                                                                        <option value="" selected={current_id.is_empty()}>"-- Select Provider --"</option>
+                                                                        {openai_integrations.into_iter().map(|int| {
+                                                                            let id = int.id.clone();
+                                                                            let is_selected = id == current_id;
+                                                                            view! {
+                                                                                <option value=id selected=is_selected>
+                                                                                    {int.name}
+                                                                                </option>
+                                                                            }
+                                                                        }).collect_view()}
+                                                                    </select>
+                                                                }
+                                                            }
+                                                        }
+                                                    </Suspense>
+                                                </div>
+                                                <div class="form-group">
+                                                    <label>"Model"</label>
+                                                    <Suspense fallback=move || view! { <select disabled=true><option>"Loading models..."</option></select> }>
+                                                        {
+                                                            let nid = node_id_model_for_select.clone();
+                                                            let curr_model = current_model_for_select.clone();
+                                                            move || {
+                                                                let result = discovered_models.get();
+                                                                let current_model_id = curr_model.clone();
+                                                                let node_id_for_model = nid.clone();
+
+                                                                // No integration selected yet
+                                                                if selected_integration.get().is_empty() {
+                                                                    return view! {
+                                                                        <select disabled=true>
+                                                                            <option>"-- Select a provider first --"</option>
+                                                                        </select>
+                                                                    }.into_any();
+                                                                }
+
+                                                                // Handle the result
+                                                                match result {
+                                                                    None => {
+                                                                        // Still loading
+                                                                        view! {
+                                                                            <select disabled=true>
+                                                                                <option>"Discovering models..."</option>
+                                                                            </select>
+                                                                        }.into_any()
+                                                                    }
+                                                                    Some(Err(error)) => {
+                                                                        // Error occurred - show error with retry button
+                                                                        view! {
+                                                                            <div class="model-discovery-error">
+                                                                                <select disabled=true>
+                                                                                    <option>"Discovery failed"</option>
+                                                                                </select>
+                                                                                <p class="error-message">{error}</p>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    class="retry-btn"
+                                                                                    on:click=move |_| {
+                                                                                        set_retry_count.update(|c| *c += 1);
+                                                                                    }
+                                                                                >
+                                                                                    "Retry"
+                                                                                </button>
+                                                                            </div>
+                                                                        }.into_any()
+                                                                    }
+                                                                    Some(Ok(models)) if models.is_empty() => {
+                                                                        // No models found
+                                                                        view! {
+                                                                            <div class="model-discovery-empty">
+                                                                                <select disabled=true>
+                                                                                    <option>"No models found"</option>
+                                                                                </select>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    class="retry-btn"
+                                                                                    on:click=move |_| {
+                                                                                        set_retry_count.update(|c| *c += 1);
+                                                                                    }
+                                                                                >
+                                                                                    "Refresh"
+                                                                                </button>
+                                                                            </div>
+                                                                        }.into_any()
+                                                                    }
+                                                                    Some(Ok(models)) => {
+                                                                        // Show discovered models
+                                                                        view! {
+                                                                            <select on:change=move |ev| {
+                                                                                let model_id = event_target_value(&ev);
+                                                                                let cfg = serde_json::json!({
+                                                                                    "integration_id": selected_integration.get(),
+                                                                                    "model_id": model_id
+                                                                                }).to_string();
+                                                                                update_node_config(node_id_for_model.clone(), cfg);
+                                                                            }>
+                                                                                <option value="" selected={current_model_id.is_empty()}>"-- Select Model --"</option>
+                                                                                {models.into_iter().map(|model| {
+                                                                                    let id = model.id.clone();
+                                                                                    let is_selected = id == current_model_id;
+                                                                                    view! {
+                                                                                        <option value=id.clone() selected=is_selected>
+                                                                                            {model.name}
+                                                                                        </option>
+                                                                                    }
+                                                                                }).collect_view()}
+                                                                            </select>
+                                                                        }.into_any()
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    </Suspense>
+                                                </div>
+                                                <p class="help">"Connect this model node's output to AI nodes to specify which model they should use."</p>
                                             </div>
                                         }.into_any()
                                     },
